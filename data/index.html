@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIEMENS - SICHARGE D MONITOR</title>
+    <style>
+        :root {
+            --bg-color: #090E14;
+            --card-color: #161c24;
+            --siemens-teal: #009999;
+            --text-color: #ffffff;
+            --gray-text: #94a3b8;
+            --success-color: #00ff00;
+            --danger-color: #ff0000;
+            --terminal-bg: #000000;
+            --input-bg: #0f172a;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+        body, html {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Login Screen */
+        #login-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-color);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-card {
+            background: var(--card-color);
+            width: 90%;
+            max-width: 400px;
+            padding: 2.5rem;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #2d3748;
+        }
+
+        .login-img {
+            width: 180px;
+            height: auto;
+            margin-bottom: 2rem;
+            filter: drop-shadow(0 0 15px rgba(0, 153, 153, 0.3));
+        }
+
+        .login-title {
+            color: var(--siemens-teal);
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: 4px;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+        }
+
+        .login-form { width: 100%; display: flex; flex-direction: column; gap: 1.2rem; }
+
+        .login-input-group { position: relative; width: 100%; }
+
+        .login-input {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid #2d3748;
+            padding: 0.8rem 1rem;
+            border-radius: 6px;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .login-input::placeholder { color: #4b5563; }
+
+        .login-btn {
+            background: var(--siemens-teal);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            text-transform: capitalize;
+            transition: transform 0.1s;
+        }
+
+        .login-btn:active { transform: scale(0.98); }
+
+        /* Main Dashboard (Hidden by default) */
+        #main-container {
+            display: none;
+            padding: 2rem;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .brand h1 {
+            color: var(--siemens-teal);
+            font-size: 2.5rem;
+            margin: 0;
+            letter-spacing: 2px;
+            font-weight: 800;
+        }
+
+        .brand h2 {
+            font-size: 1.2rem;
+            color: #3b82f6;
+            margin: 0;
+            letter-spacing: 1px;
+            font-weight: 400;
+        }
+
+        .header-status {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .status-badge {
+            background: #1e293b;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .status-badge.active { background: var(--siemens-teal); }
+        .status-ip { color: var(--gray-text); font-size: 0.8rem; margin-left: 0.5rem; }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .section-title {
+            color: #3b82f6;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+        }
+
+        .card {
+            background: var(--card-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            border: 1px solid #2d3748;
+        }
+
+        .dac-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .dac-card {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .dac-label { font-size: 0.85rem; color: var(--gray-text); display: flex; justify-content: space-between; }
+        .dac-value { font-size: 2.5rem; color: var(--siemens-teal); font-weight: bold; text-align: center; margin: 0.5rem 0; }
+        
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--siemens-teal);
+            height: 4px;
+            background: #2d3748;
+            outline: none;
+        }
+
+        .dac-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--gray-text);
+        }
+
+        .dac-input {
+            background: var(--bg-color);
+            border: 1px solid #2d3748;
+            color: white;
+            width: 50px;
+            padding: 2px 4px;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        .relays-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .relay-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .relay-group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2d3748;
+            padding-bottom: 0.5rem;
+        }
+
+        .relay-group-title { font-size: 0.85rem; color: #3b82f6; font-weight: bold; }
+        
+        .reset-btn {
+            background: transparent;
+            border: 1px solid #2d3748;
+            color: var(--gray-text);
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .relay-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.8rem;
+        }
+
+        .relay-btn {
+            background: #2d3748;
+            border: none;
+            color: white;
+            padding: 0.8rem;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .relay-btn.active {
+            background: var(--siemens-teal);
+            box-shadow: 0 0 10px rgba(0, 153, 153, 0.4);
+        }
+
+        .system-log {
+            background: var(--terminal-bg);
+            border: 1px solid #2d3748;
+            border-radius: 4px;
+            padding: 1rem;
+            height: 100%;
+            min-height: 400px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.8rem;
+            overflow-y: auto;
+        }
+
+        .log-entry { margin-bottom: 0.3rem; }
+        .log-time { color: var(--gray-text); }
+        .log-msg { color: #ffffff; }
+        .log-msg.success { color: var(--success-color); }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+            .dac-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Overlay -->
+    <div id="login-overlay">
+        <div class="login-card">
+            <img src="/charger.png" alt="SICHARGE D" class="login-img" onerror="this.src='https://via.placeholder.com/180x300?text=SICHARGE+D'">
+            <div class="login-title">LOGIN</div>
+            <form class="login-form" data-cy="login-form" onsubmit="event.preventDefault(); handleLogin();">
+                <div class="login-input-group">
+                    <input type="text" id="login-username" data-cy="login-username" class="login-input" placeholder="Username" required>
+                </div>
+                <div class="login-input-group">
+                    <input type="password" id="login-password" data-cy="login-password" class="login-input" placeholder="Password" required>
+                </div>
+                <button type="submit" id="login-submit" data-cy="login-submit" class="login-btn">Authorize</button>
+            </form>
+            <div id="login-error" style="color: var(--danger-color); font-size: 0.8rem; margin-top: 1rem; display: none;">Invalid credentials</div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="main-container">
+        <header>
+            <div class="brand">
+                <h1>SIEMENS</h1>
+                <h2>SICHARGE D MONITOR</h2>
+                <div id="sat-time" style="font-size: 0.7rem; color: var(--gray-text); margin-top: 0.5rem;">SAT @2026</div>
+            </div>
+            <div class="header-status">
+                <div id="ws-badge" data-cy="ws-status" class="status-badge">WebSockets</div>
+                <div id="mqtt-badge" data-cy="mqtt-status" class="status-badge">MQTT</div>
+                <div class="status-ip" id="device-ip">192.168.0.213</div>
+                <button class="reset-btn" onclick="logout()" style="margin-left: 10px;">LOGOUT</button>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="monitoring-column">
+                <div class="section-title">VOLTAGE OUTPUT CONTROL (DAC)</div>
+                <div class="dac-container">
+                    <div class="card dac-card">
+                        <div class="dac-label">
+                            <span>TF Voltage (2.0V - 3.0V)</span>
+                            <button class="reset-btn" onclick="resetDAC(1)">RESET</button>
+                        </div>
+                        <div class="dac-value" id="val-dac1">2.0 V</div>
+                        <input type="range" id="range-dac1" min="2" max="3" step="0.1" value="2.0" oninput="updateDAC(1, this.value)">
+                        <div class="dac-controls">
+                            <span>2V</span>
+                            <input type="text" class="dac-input" id="input-dac1" value="2.0" onchange="updateDAC(1, this.value)">
+                            <span style="flex:1"></span>
+                            <span>3V</span>
+                        </div>
+                    </div>
+                    <div class="card dac-card">
+                        <div class="dac-label">
+                            <span>Dispenser Temp (4.0V - 9.0V)</span>
+                            <div>
+                                <button class="reset-btn" style="margin-right: 5px;">AUTO RAMP</button>
+                                <button class="reset-btn" onclick="resetDAC(2)">RESET</button>
+                            </div>
+                        </div>
+                        <div class="dac-value" id="val-dac2">4.0 V</div>
+                        <input type="range" id="range-dac2" min="4" max="9" step="0.1" value="4.0" oninput="updateDAC(2, this.value)">
+                        <div class="dac-controls">
+                            <span>4V</span>
+                            <input type="text" class="dac-input" id="input-dac2" value="4.0" onchange="updateDAC(2, this.value)">
+                            <span style="flex:1"></span>
+                            <span>9V</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-title">RELAYS</div>
+                <div class="card relays-container">
+                    <div style="display:flex; justify-content:flex-end;">
+                        <button class="reset-btn" onclick="resetAllRelays()">RESET ALL</button>
+                    </div>
+                    <div class="relay-group">
+                        <div class="relay-group-header"><span class="relay-group-title">ONGOING COIL FEEDBACK RELAY</span></div>
+                        <div class="relay-grid">
+                            <button class="relay-btn" data-cy="relay-toggle-0" id="btn-r0" onclick="toggleRelay(0)">DC1</button>
+                            <button class="relay-btn" data-cy="relay-toggle-1" id="btn-r1" onclick="toggleRelay(1)">DC2</button>
+                            <button class="relay-btn" data-cy="relay-toggle-2" id="btn-r2" onclick="toggleRelay(2)">DC3</button>
+                            <button class="relay-btn" data-cy="relay-toggle-3" id="btn-r3" onclick="toggleRelay(3)">DC4</button>
+                        </div>
+                    </div>
+                    <div class="relay-group">
+                        <div class="relay-group-header"><span class="relay-group-title">24V - DC+ / DC-</span></div>
+                        <div class="relay-grid" style="grid-template-columns: repeat(2, 1fr);">
+                            <button class="relay-btn" data-cy="relay-toggle-4" id="btn-r4" onclick="toggleRelay(4)">DC1</button>
+                            <button class="relay-btn" data-cy="relay-toggle-5" id="btn-r5" onclick="toggleRelay(5)">DC2</button>
+                        </div>
+                    </div>
+                    <div class="relay-group">
+                        <div class="relay-group-header"><span class="relay-group-title">MAIN GROUP FEEDBACK RELAY</span></div>
+                        <div class="relay-grid" style="grid-template-columns: repeat(2, 1fr);">
+                            <button class="relay-btn" data-cy="relay-toggle-6" id="btn-r6" onclick="toggleRelay(6)">DC1</button>
+                            <button class="relay-btn" data-cy="relay-toggle-7" id="btn-r7" onclick="toggleRelay(7)">DC2</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="system-column">
+                <div class="section-title">SYSTEM LOG</div>
+                <div class="system-log" id="log-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let relayStates = Array(8).fill(false);
+        let isAuthenticated = false;
+        const logContainer = document.getElementById('log-container');
+
+        function addLog(msg, type = '') {
+            const now = new Date();
+            const time = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">${time}</span> <span class="log-msg ${type}">${msg}</span>`;
+            logContainer.prepend(entry);
+        }
+
+        function handleLogin() {
+            const user = document.getElementById('login-username').value;
+            const pass = document.getElementById('login-password').value;
+            
+            // In a real app with Basic Auth, we'd try a fetch with these creds
+            // For this UI demo, we match the hardcoded requirement
+            if (user === 'admin' && pass === 'admin123') {
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('main-container').style.display = 'flex';
+                isAuthenticated = true;
+                initWS();
+                addLog('User Authorized: admin', 'success');
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        }
+
+        function logout() {
+            location.reload();
+        }
+
+        function initWS() {
+            if (!isAuthenticated) return;
+            ws = new WebSocket(`ws://${location.hostname}:81/`);
+            ws.onopen = () => {
+                document.getElementById('ws-badge').classList.add('active');
+                addLog('Real-Time Connected ⚡', 'success');
+            };
+            ws.onclose = () => {
+                document.getElementById('ws-badge').classList.remove('active');
+                addLog('Real-Time Disconnected', 'danger');
+                setTimeout(initWS, 2000);
+            };
+            ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                if (data.type === 'init' || data.type === 'update') {
+                    if (data.type === 'init') addLog('State Synced');
+                    updateUI(data);
+                }
+            };
+        }
+
+        function updateUI(data) {
+            if (data.relays) {
+                data.relays.forEach((state, i) => {
+                    relayStates[i] = state;
+                    const btn = document.getElementById(`btn-r${i}`);
+                    if (btn) state ? btn.classList.add('active') : btn.classList.remove('active');
+                });
+            }
+            if (data.v1 !== undefined) {
+                document.getElementById('val-dac1').textContent = `${parseFloat(data.v1).toFixed(1)} V`;
+                document.getElementById('range-dac1').value = data.v1;
+                document.getElementById('input-dac1').value = data.v1;
+            }
+            if (data.v2 !== undefined) {
+                document.getElementById('val-dac2').textContent = `${parseFloat(data.v2).toFixed(1)} V`;
+                document.getElementById('range-dac2').value = data.v2;
+                document.getElementById('input-dac2').value = data.v2;
+            }
+            if (data.ip) document.getElementById('device-ip').textContent = data.ip;
+        }
+
+        function toggleRelay(idx) {
+            ws.send(JSON.stringify({ cmd: 'relay', idx: idx, state: !relayStates[idx] }));
+        }
+
+        function updateDAC(ch, val) {
+            const v = parseFloat(val);
+            document.getElementById(`val-dac${ch}`).textContent = `${v.toFixed(1)} V`;
+            document.getElementById(`range-dac${ch}`).value = v;
+            document.getElementById(`input-dac${ch}`).value = v;
+            ws.send(JSON.stringify({ cmd: 'dac', channel: ch, voltage: v }));
+        }
+
+        function resetDAC(ch) { updateDAC(ch, ch === 1 ? 2.0 : 4.0); }
+        function resetAllRelays() {
+            for(let i=0; i<8; i++) if(relayStates[i]) ws.send(JSON.stringify({ cmd: 'relay', idx: i, state: false }));
+        }
+    </script>
+</body>
+</html>

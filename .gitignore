@@ -1,0 +1,11 @@
+.pio
+.vscode
+node_modules
+*.lib
+*.a
+*.o
+*.pyc
+.DS_Store
+Thumbs.db
+*.log
+/include/
