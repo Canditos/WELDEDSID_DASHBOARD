@@ -316,10 +316,10 @@
                 <div id="sat-time" style="font-size: 0.7rem; color: var(--gray-text); margin-top: 0.5rem;">SAT @2026</div>
             </div>
             <div class="header-status">
-                <div id="ws-badge" data-cy="ws-status" class="status-badge">WebSockets</div>
-                <div id="mqtt-badge" data-cy="mqtt-status" class="status-badge">MQTT</div>
-                <div class="status-ip" id="device-ip">192.168.0.213</div>
-                <button class="reset-btn" onclick="logout()" style="margin-left: 10px;">LOGOUT</button>
+                <div id="ws-badge" data-cy="status-ws-badge" class="status-badge">WebSockets</div>
+                <div id="mqtt-badge" data-cy="status-mqtt-badge" class="status-badge">MQTT</div>
+                <div class="status-ip" id="device-ip" data-cy="status-device-ip">192.168.0.213</div>
+                <button class="reset-btn" data-cy="auth-logout-btn" onclick="logout()" style="margin-left: 10px;">LOGOUT</button>
             </div>
         </header>
 
@@ -330,13 +330,13 @@
                     <div class="card dac-card">
                         <div class="dac-label">
                             <span>TF Voltage (2.0V - 3.0V)</span>
-                            <button class="reset-btn" onclick="resetDAC(1)">RESET</button>
+                            <button class="reset-btn" data-cy="dac-reset-btn-ch1" onclick="resetDAC(1)">RESET</button>
                         </div>
-                        <div class="dac-value" id="val-dac1">2.0 V</div>
-                        <input type="range" id="range-dac1" min="2" max="3" step="0.1" value="2.0" oninput="updateDAC(1, this.value)">
+                        <div class="dac-value" id="val-dac1" data-cy="dac-value-display-ch1">2.0 V</div>
+                        <input type="range" id="range-dac1" data-cy="dac-slider-ch1" min="2" max="3" step="0.1" value="2.0" oninput="updateDAC(1, this.value)">
                         <div class="dac-controls">
                             <span>2V</span>
-                            <input type="text" class="dac-input" id="input-dac1" value="2.0" onchange="updateDAC(1, this.value)">
+                            <input type="text" class="dac-input" id="input-dac1" data-cy="dac-input-ch1" value="2.0" onchange="updateDAC(1, this.value)">
                             <span style="flex:1"></span>
                             <span>3V</span>
                         </div>
@@ -345,15 +345,15 @@
                         <div class="dac-label">
                             <span>Dispenser Temp (4.0V - 9.0V)</span>
                             <div>
-                                <button class="reset-btn" style="margin-right: 5px;">AUTO RAMP</button>
-                                <button class="reset-btn" onclick="resetDAC(2)">RESET</button>
+                                <button class="reset-btn" data-cy="dac-autoramp-btn-ch2" style="margin-right: 5px;">AUTO RAMP</button>
+                                <button class="reset-btn" data-cy="dac-reset-btn-ch2" onclick="resetDAC(2)">RESET</button>
                             </div>
                         </div>
-                        <div class="dac-value" id="val-dac2">4.0 V</div>
-                        <input type="range" id="range-dac2" min="4" max="9" step="0.1" value="4.0" oninput="updateDAC(2, this.value)">
+                        <div class="dac-value" id="val-dac2" data-cy="dac-value-display-ch2">4.0 V</div>
+                        <input type="range" id="range-dac2" data-cy="dac-slider-ch2" min="4" max="9" step="0.1" value="4.0" oninput="updateDAC(2, this.value)">
                         <div class="dac-controls">
                             <span>4V</span>
-                            <input type="text" class="dac-input" id="input-dac2" value="4.0" onchange="updateDAC(2, this.value)">
+                            <input type="text" class="dac-input" id="input-dac2" data-cy="dac-input-ch2" value="4.0" onchange="updateDAC(2, this.value)">
                             <span style="flex:1"></span>
                             <span>9V</span>
                         </div>
@@ -363,29 +363,29 @@
                 <div class="section-title">RELAYS</div>
                 <div class="card relays-container">
                     <div style="display:flex; justify-content:flex-end;">
-                        <button class="reset-btn" onclick="resetAllRelays()">RESET ALL</button>
+                        <button class="reset-btn" data-cy="relay-reset-all-btn" onclick="resetAllRelays()">RESET ALL</button>
                     </div>
                     <div class="relay-group">
                         <div class="relay-group-header"><span class="relay-group-title">ONGOING COIL FEEDBACK RELAY</span></div>
                         <div class="relay-grid">
-                            <button class="relay-btn" data-cy="relay-toggle-0" id="btn-r0" onclick="toggleRelay(0)">DC1</button>
-                            <button class="relay-btn" data-cy="relay-toggle-1" id="btn-r1" onclick="toggleRelay(1)">DC2</button>
-                            <button class="relay-btn" data-cy="relay-toggle-2" id="btn-r2" onclick="toggleRelay(2)">DC3</button>
-                            <button class="relay-btn" data-cy="relay-toggle-3" id="btn-r3" onclick="toggleRelay(3)">DC4</button>
+                            <button class="relay-btn" data-cy="relay-toggle-btn-0" id="btn-r0" onclick="toggleRelay(0)">DC1</button>
+                            <button class="relay-btn" data-cy="relay-toggle-btn-1" id="btn-r1" onclick="toggleRelay(1)">DC2</button>
+                            <button class="relay-btn" data-cy="relay-toggle-btn-2" id="btn-r2" onclick="toggleRelay(2)">DC3</button>
+                            <button class="relay-btn" data-cy="relay-toggle-btn-3" id="btn-r3" onclick="toggleRelay(3)">DC4</button>
                         </div>
                     </div>
                     <div class="relay-group">
                         <div class="relay-group-header"><span class="relay-group-title">24V - DC+ / DC-</span></div>
                         <div class="relay-grid" style="grid-template-columns: repeat(2, 1fr);">
-                            <button class="relay-btn" data-cy="relay-toggle-4" id="btn-r4" onclick="toggleRelay(4)">DC1</button>
-                            <button class="relay-btn" data-cy="relay-toggle-5" id="btn-r5" onclick="toggleRelay(5)">DC2</button>
+                            <button class="relay-btn" data-cy="relay-toggle-btn-4" id="btn-r4" onclick="toggleRelay(4)">DC1</button>
+                            <button class="relay-btn" data-cy="relay-toggle-btn-5" id="btn-r5" onclick="toggleRelay(5)">DC2</button>
                         </div>
                     </div>
                     <div class="relay-group">
                         <div class="relay-group-header"><span class="relay-group-title">MAIN GROUP FEEDBACK RELAY</span></div>
                         <div class="relay-grid" style="grid-template-columns: repeat(2, 1fr);">
-                            <button class="relay-btn" data-cy="relay-toggle-6" id="btn-r6" onclick="toggleRelay(6)">DC1</button>
-                            <button class="relay-btn" data-cy="relay-toggle-7" id="btn-r7" onclick="toggleRelay(7)">DC2</button>
+                            <button class="relay-btn" data-cy="relay-toggle-btn-6" id="btn-r6" onclick="toggleRelay(6)">DC1</button>
+                            <button class="relay-btn" data-cy="relay-toggle-btn-7" id="btn-r7" onclick="toggleRelay(7)">DC2</button>
                         </div>
                     </div>
                 </div>
@@ -393,7 +393,7 @@
 
             <div class="system-column">
                 <div class="section-title">SYSTEM LOG</div>
-                <div class="system-log" id="log-container"></div>
+                <div class="system-log" id="log-container" data-cy="system-log-container"></div>
             </div>
         </div>
     </div>
