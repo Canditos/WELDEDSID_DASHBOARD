@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - codex/**
+  pull_request:
+
+jobs:
+  firmware-build:
+    name: Firmware Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade pip platformio
+
+      - name: Build firmware
+        run: pio run
+
+  dashboard-tests:
+    name: Dashboard Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Cypress suite
+        uses: cypress-io/github-action@v6
+        with:
+          start: npm run serve:data
+          wait-on: http://127.0.0.1:4173
+          command: npm run cypress:run

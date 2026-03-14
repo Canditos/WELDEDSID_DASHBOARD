@@ -3,8 +3,8 @@
 #include <esp_system.h>
 #include <SPIFFS.h>
 
-AppServer::AppServer(ConfigManager& configMgr, HardwareHAL& hal, WiFiManager& wifiMgr, MQTTManager& mqttMgr) 
-    : config(configMgr), hardware(hal), wifi(wifiMgr), mqtt(mqttMgr), server(Config::HTTP_PORT), webSocket(Config::WS_PORT) {
+AppServer::AppServer(ConfigManager& configMgr, HardwareHAL& hal, WiFiManager& wifiMgr, MQTTManager& mqttMgr, ModbusManager& modbusMgr) 
+    : config(configMgr), hardware(hal), wifi(wifiMgr), mqtt(mqttMgr), modbus(modbusMgr), server(Config::HTTP_PORT), webSocket(Config::WS_PORT) {
     memset(authorizedClients, 0, sizeof(authorizedClients));
 }
 
@@ -74,6 +74,17 @@ void AppServer::setupRoutes() {
         request->send(200, "application/json", output);
     });
 
+    server.on("/api/health", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        if (!authenticate(request)) return request->requestAuthentication();
+
+        DynamicJsonDocument doc(512);
+        populateHealthJson(doc);
+
+        String output;
+        serializeJson(doc, output);
+        request->send(200, "application/json", output);
+    });
+
     // API: Get State
     server.on("/api/state", HTTP_GET, [this](AsyncWebServerRequest *request) {
         if (!authenticate(request)) return request->requestAuthentication();
@@ -98,8 +109,9 @@ void AppServer::setupRoutes() {
         DynamicJsonDocument doc(256);
         doc["ssid"] = WiFi.SSID();
         doc["status"] = (int)WiFi.status();
-        doc["ip"] = WiFi.localIP().toString();
+        doc["ip"] = wifi.getIP();
         doc["rssi"] = WiFi.RSSI();
+        doc["mode"] = (int)wifi.getMode();
         
         String output;
         serializeJson(doc, output);
@@ -348,7 +360,7 @@ void AppServer::sendStateToClient(uint8_t num) {
     doc["v2"] = state.dac2_v;
     doc["wifiMode"] = (int)wifi.getMode();
     doc["mqtt"] = mqtt.isConnected();
-    doc["modbus"] = true;
+    doc["modbus"] = modbus.isHealthy();
 
     String output;
     serializeJson(doc, output);
@@ -372,7 +384,7 @@ void AppServer::broadcastUpdate(int singleIdx, int singleState) {
     doc["v2"] = state.dac2_v;
     doc["mqtt"] = mqtt.isConnected();
     doc["wifiMode"] = (int)wifi.getMode();
-    doc["modbus"] = true;
+    doc["modbus"] = modbus.isHealthy();
     
     String output;
     serializeJson(doc, output);
@@ -405,4 +417,13 @@ bool AppServer::hasValidRelayIndex(int idx) const {
 
 bool AppServer::hasValidDacChannel(int channel) const {
     return channel == 1 || channel == 2;
+}
+
+void AppServer::populateHealthJson(DynamicJsonDocument& doc) const {
+    doc["wifiConnected"] = wifi.isConnected();
+    doc["wifiMode"] = (int)wifi.getMode();
+    doc["wifiIp"] = wifi.getIP();
+    doc["mqttConnected"] = mqtt.isConnected();
+    doc["modbusHealthy"] = modbus.isHealthy();
+    doc["heap"] = ESP.getFreeHeap();
 }

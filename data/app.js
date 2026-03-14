@@ -16,6 +16,21 @@ let scanTimer = null;
 const dacSendTimers = {};
 let networkPanelOpen = false;
 
+function getWifiModeLabel(mode) {
+    switch (Number(mode)) {
+        case 1:
+            return "Connecting";
+        case 2:
+            return "Connected";
+        case 3:
+            return "AP Only";
+        case 4:
+            return "AP Fallback";
+        default:
+            return "Offline";
+    }
+}
+
 function setVisible(id, visible, displayValue = "block") {
     document.getElementById(id).style.display = visible ? displayValue : "none";
 }
@@ -84,11 +99,14 @@ async function handleLogin(event) {
         setVisible("main-container", true, "block");
         setVisible("login-error", false);
 
-        await Promise.all([updateWifiStatus(), loadSecurityStatus()]);
+        await Promise.all([updateWifiStatus(), updateSystemHealth(), loadSecurityStatus()]);
         initWS();
 
         if (wifiPollTimer) clearInterval(wifiPollTimer);
-        wifiPollTimer = setInterval(updateWifiStatus, 15000);
+        wifiPollTimer = setInterval(() => {
+            updateWifiStatus();
+            updateSystemHealth();
+        }, 15000);
         addLog(`User authorized: ${username}`, "AUTH");
     } catch (error) {
         setVisible("login-error", true);
@@ -241,16 +259,35 @@ function startAutoProgram(channel) {
 async function updateWifiStatus() {
     try {
         const data = await fetchJSON("/api/wifi/status");
-        document.getElementById("display-ip").innerText = `Connected IP: ${data.ip || "---.---.---.---"}`;
-        document.getElementById("wifi-status").innerText = `Status: ${data.ssid ? `Connected to ${data.ssid}` : "AP Mode active"}`;
+        const ipText = data.ip || "---.---.---.---";
+        const modeLabel = getWifiModeLabel(data.mode);
+        const statusText = data.status === 3 && data.ssid
+            ? `Connected to ${data.ssid}`
+            : `${modeLabel}${data.ssid ? ` (${data.ssid})` : ""}`;
+
+        document.getElementById("display-ip").innerText = `Connected IP: ${ipText}`;
+        document.getElementById("wifi-status").innerText = `Status: ${statusText}`;
         updateStatusBadge("wifi", data.status === 3);
-        updateStatusBadge("modbus", true);
 
         if (data.status === 3 && document.getElementById("offline-overlay").style.display === "flex") {
             location.reload();
         }
     } catch (error) {
         updateStatusBadge("wifi", false);
+        document.getElementById("wifi-status").innerText = "Status: Unable to load Wi-Fi status";
+    }
+}
+
+async function updateSystemHealth() {
+    try {
+        const data = await fetchJSON("/api/health");
+        updateStatusBadge("wifi", !!data.wifiConnected);
+        updateStatusBadge("mqtt", !!data.mqttConnected);
+        updateStatusBadge("modbus", !!data.modbusHealthy);
+    } catch (error) {
+        updateStatusBadge("wifi", false);
+        updateStatusBadge("mqtt", false);
+        updateStatusBadge("modbus", false);
     }
 }
 
@@ -267,7 +304,7 @@ function renderWifiList(networks) {
         return `
             <button type="button" class="wifi-item" data-ssid="${ssid}">
                 <span class="wifi-name">${ssid}</span>
-                <span class="wifi-meta">${network.rssi} dBm · ${secure}</span>
+                <span class="wifi-meta">${network.rssi} dBm | ${secure}</span>
             </button>
         `;
     }).join("");
@@ -327,7 +364,10 @@ async function connectWifi() {
         addLog("Wi-Fi save request interrupted, waiting for device", "WARN");
     }
 
-    setInterval(updateWifiStatus, 5000);
+    setInterval(() => {
+        updateWifiStatus();
+        updateSystemHealth();
+    }, 5000);
 }
 
 async function loadSecurityStatus() {
@@ -367,6 +407,7 @@ async function saveSecuritySettings() {
         if (ws) ws.close();
         initWS();
         await loadSecurityStatus();
+        await updateSystemHealth();
         addLog("Security settings updated", "AUTH");
     } catch (error) {
         addLog("Failed to update security settings", "ERR");

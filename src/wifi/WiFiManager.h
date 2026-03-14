@@ -12,7 +12,7 @@ public:
     
     bool isConnected() const { return WiFi.status() == WL_CONNECTED; }
     WiFiModeState getMode() const { return currentMode; }
-    String getIP() const { return WiFi.localIP().toString(); }
+    String getIP() const { return isConnected() ? WiFi.localIP().toString() : WiFi.softAPIP().toString(); }
     
     void scanNetworks();
     String getScanResultsJSON();

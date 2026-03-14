@@ -120,7 +120,16 @@ Cypress.Commands.add("mountDashboard", (options = {}) => {
     ssid: "Preview_Network",
     status: 3,
     ip: "192.168.0.222",
-    rssi: -48
+    rssi: -48,
+    mode: 2
+  };
+  const healthStatus = options.healthStatus || {
+    wifiConnected: true,
+    wifiMode: 2,
+    wifiIp: "192.168.0.222",
+    mqttConnected: true,
+    modbusHealthy: true,
+    heap: 182344
   };
   const securityStatus = options.securityStatus || {
     adminUser: "admin",
@@ -134,6 +143,7 @@ Cypress.Commands.add("mountDashboard", (options = {}) => {
 
   cy.intercept("GET", "/api/ws-auth", { statusCode: 200, body: { token: "preview-token" } }).as("wsAuth");
   cy.intercept("GET", "/api/wifi/status", { statusCode: 200, body: wifiStatus }).as("wifiStatus");
+  cy.intercept("GET", "/api/health", { statusCode: 200, body: healthStatus }).as("healthStatus");
   cy.intercept("GET", "/api/security/status", { statusCode: 200, body: securityStatus }).as("securityStatus");
   cy.intercept("POST", "/api/wifi/startScan", { statusCode: 200, body: { status: "scanning" } }).as("startScan");
   cy.intercept("GET", "/api/wifi/scan", { statusCode: 200, body: wifiScan }).as("wifiScan");
@@ -156,6 +166,7 @@ Cypress.Commands.add("mountDashboard", (options = {}) => {
   cy.contains("button", "Authorize").click();
   cy.wait("@wsAuth");
   cy.wait("@wifiStatus");
+  cy.wait("@healthStatus");
   cy.wait("@securityStatus");
   cy.get("[data-cy='relay-control-center-title']").should("be.visible");
 });

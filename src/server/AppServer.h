@@ -1,4 +1,5 @@
 #pragma once
+#include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 #include <WebSocketsServer.h>
 #include "../common/Constants.h"
@@ -7,10 +8,11 @@
 #include "../hardware/HardwareHAL.h"
 #include "../wifi/WiFiManager.h"
 #include "../mqtt/MQTTManager.h"
+#include "../modbus/ModbusManager.h"
 
 class AppServer {
 public:
-    AppServer(ConfigManager& configMgr, HardwareHAL& hal, WiFiManager& wifiMgr, MQTTManager& mqttMgr);
+    AppServer(ConfigManager& configMgr, HardwareHAL& hal, WiFiManager& wifiMgr, MQTTManager& mqttMgr, ModbusManager& modbusMgr);
     void begin();
     void loop();
     
@@ -22,6 +24,7 @@ private:
     HardwareHAL& hardware;
     WiFiManager& wifi;
     MQTTManager& mqtt;
+    ModbusManager& modbus;
     AsyncWebServer server;
     WebSocketsServer webSocket;
     String wsAuthToken;
@@ -37,6 +40,7 @@ private:
     String generateWsAuthToken() const;
     bool hasValidRelayIndex(int idx) const;
     bool hasValidDacChannel(int channel) const;
+    void populateHealthJson(DynamicJsonDocument& doc) const;
     
     bool authenticate(AsyncWebServerRequest *request);
 };

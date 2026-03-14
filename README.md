@@ -261,6 +261,11 @@ The system supports:
 
 If the device is still using default credentials, update them as part of commissioning.
 
+## Technical Docs
+
+- [Wiring notes](docs/wiring.md)
+- [Protocol notes](docs/protocols.md)
+
 ## Current Status
 
 This repository already includes:
