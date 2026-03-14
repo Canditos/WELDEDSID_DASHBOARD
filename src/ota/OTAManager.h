@@ -5,6 +5,6 @@
 
 class OTAManager {
 public:
-    void begin(const char* deviceId);
+    void begin(const char* deviceId, const char* otaPassword);
     void loop();
 };

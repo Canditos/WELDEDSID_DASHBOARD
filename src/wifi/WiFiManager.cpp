@@ -1,6 +1,19 @@
 #include "WiFiManager.h"
 #include <ArduinoJson.h>
 
+namespace {
+void copyCString(char* dest, size_t destSize, const char* src) {
+    if (destSize == 0) return;
+    if (src == nullptr) {
+        dest[0] = '\0';
+        return;
+    }
+
+    strncpy(dest, src, destSize - 1);
+    dest[destSize - 1] = '\0';
+}
+}
+
 WiFiManager::WiFiManager(ConfigManager& configMgr) 
     : config(configMgr), currentMode(WiFiModeState::OFF), isScanning(false) {}
 
@@ -107,8 +120,8 @@ String WiFiManager::getScanResultsJSON() {
 }
 
 bool WiFiManager::saveCredentials(const char* ssid, const char* pass) {
-    strncpy(netConfig.ssid, ssid, sizeof(netConfig.ssid));
-    strncpy(netConfig.pass, pass, sizeof(netConfig.pass));
+    copyCString(netConfig.ssid, sizeof(netConfig.ssid), ssid);
+    copyCString(netConfig.pass, sizeof(netConfig.pass), pass);
     config.saveNetworkConfig(netConfig);
     
     startSTA();

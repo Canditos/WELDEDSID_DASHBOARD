@@ -10,6 +10,9 @@ public:
     
     void loadNetworkConfig(NetworkConfig& config);
     void saveNetworkConfig(const NetworkConfig& config);
+
+    void loadSecurityConfig(SecurityConfig& config);
+    void saveSecurityConfig(const SecurityConfig& config);
     
     void loadHardwareState(DeviceState& state);
     void saveRelayState(uint8_t index, bool state);

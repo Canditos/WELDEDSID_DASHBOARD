@@ -1,0 +1,16 @@
+{
+  "name": "novo-esp-monitor",
+  "version": "1.6.2",
+  "type": "module",
+  "scripts": {
+    "serve:data": "node scripts/serve-data.mjs",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "cypress": "^14.5.4"
+  }
+}

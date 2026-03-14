@@ -13,7 +13,7 @@ HardwareHAL hardware(configMgr);
 WiFiManager wifiMgr(configMgr);
 MQTTManager mqttMgr(configMgr, hardware);
 ModbusManager modbusMgr(hardware);
-AppServer appServer(hardware, wifiMgr, mqttMgr);
+AppServer appServer(configMgr, hardware, wifiMgr, mqttMgr);
 OTAManager otaMgr;
 
 void setup() {
@@ -55,8 +55,10 @@ void setup() {
     // 8. Initialize OTA Update Listener
     Serial.println("[SYSTEM] Starting OTA...");
     NetworkConfig currentNet;
+    SecurityConfig securityConfig;
     configMgr.loadNetworkConfig(currentNet);
-    otaMgr.begin(currentNet.deviceId);
+    configMgr.loadSecurityConfig(securityConfig);
+    otaMgr.begin(currentNet.deviceId, securityConfig.otaPassword);
     Serial.println("[SYSTEM] OTA initialized.");
     
     Serial.println("[SYSTEM] ALL MODULES INITIALIZED. Setup finished.");

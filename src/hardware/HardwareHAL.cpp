@@ -143,9 +143,11 @@ void HardwareHAL::startRamp(uint8_t channel, float targetVoltage, uint32_t durat
 
 void HardwareHAL::startStepProgram(uint8_t channel, float startV, float targetV, float step, uint32_t stepMs) {
     if (channel < 1 || channel > 2) return;
-    
+
+    ramps[channel - 1].active = false;
     prog.active = true;
     prog.channel = channel;
+    prog.startV = startV;
     prog.currentV = startV;
     prog.targetV = targetV;
     prog.stepSize = step;
@@ -183,9 +185,8 @@ void HardwareHAL::loop() {
             prog.currentV += prog.stepSize;
             
             if (prog.currentV > prog.targetV) {
-                // Program finished - reset to start voltage as per user request
-                Serial.printf("[HAL] AutoProgram Finished. Resetting to 4.0V\n");
-                setDAC(prog.channel, 4.0f); 
+                Serial.printf("[HAL] AutoProgram Finished. Resetting to %.1fV\n", prog.startV);
+                setDAC(prog.channel, prog.startV);
                 prog.active = false;
                 _changed = true;
             } else {

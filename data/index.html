@@ -4,948 +4,185 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SIEMENS - SICHARGE D MONITOR</title>
-    <style>
-        :root {
-            --bg-color: #090E14;
-            --card-color: #161c24;
-            --siemens-teal: #009999;
-            --siemens-hover: #00b3b3;
-            --text-color: #ffffff;
-            --gray-text: #94a3b8;
-            --success-color: #00ff00;
-            --danger-color: #ff3b3b;
-            --terminal-bg: #000000;
-            --input-bg: #0f172a;
-            --border-color: #2d3748;
-            --transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-
-        body, html {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow-x: hidden;
-        }
-
-        /* Login Screen */
-        #login-overlay {
-            position: fixed;
-            inset: 0;
-            background: var(--bg-color);
-            z-index: 2000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .login-card {
-            background: var(--card-color);
-            width: 90%;
-            max-width: 400px;
-            padding: 2.5rem;
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            border: 1px solid var(--border-color);
-        }
-
-        .login-img {
-            width: 180px;
-            height: auto;
-            margin-bottom: 2rem;
-            filter: drop-shadow(0 0 15px rgba(0, 153, 153, 0.3));
-        }
-
-        .login-title {
-            color: var(--siemens-teal);
-            font-size: 1.5rem;
-            font-weight: 800;
-            letter-spacing: 4px;
-            margin-bottom: 2rem;
-            text-transform: uppercase;
-        }
-
-        .login-form { width: 100%; display: flex; flex-direction: column; gap: 1.2rem; }
-
-        .login-input {
-            width: 100%;
-            background: var(--input-bg);
-            border: 1px solid var(--border-color);
-            padding: 0.8rem 1rem;
-            border-radius: 6px;
-            color: white;
-            font-size: 1rem;
-            outline: none;
-        }
-
-        .login-btn {
-            background: var(--siemens-teal);
-            color: white;
-            border: none;
-            padding: 1rem;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .login-btn:hover { background: var(--siemens-hover); transform: translateY(-1px); }
-        .login-btn:active { transform: scale(0.98); }
-
-        /* Dashboard */
-        #main-container {
-            display: none;
-            padding: 1.5rem;
-            flex-direction: column;
-            gap: 1rem;
-            max-width: 1600px;
-            margin: 0 auto;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-            padding: 0 0.5rem;
-        }
-
-        .brand h1 { color: var(--siemens-teal); font-size: 1.6rem; margin: 0; font-weight: 800; letter-spacing: 3px; }
-        .brand h2 { color: #3b82f6; font-size: 0.9rem; margin: 0; font-weight: 400; opacity: 0.8; }
-
-        .header-status { display: flex; gap: 1rem; align-items: center; }
-        .status-ip { font-size: 1.1rem; font-weight: 600; color: var(--siemens-teal); }
-
-        .grid-layout {
-            display: grid;
-            grid-template-columns: repeat(12, 1fr);
-            gap: 1.2rem;
-        }
-
-        .status-badge {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.35rem 0.7rem;
-            border-radius: 4px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: var(--transition);
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #4a5568;
-        }
-
-        .status-badge.online .status-dot { background: var(--success-color); box-shadow: 0 0 8px var(--success-color); }
-        .status-badge.connecting .status-dot { background: #ecc94b; box-shadow: 0 0 8px #ecc94b; }
-        .status-badge.offline .status-dot { background: var(--danger-color); box-shadow: 0 0 8px var(--danger-color); }
-
-        .col-4 { grid-column: span 4; }
-        .col-8 { grid-column: span 8; }
-        .col-6 { grid-column: span 6; }
-        .col-12 { grid-column: span 12; }
-
-        /* Mobile specific adjustments to grid */
-        @media (max-width: 1024px) {
-            .grid-layout { display: flex; flex-direction: column; gap: 1rem; }
-            .col-4, .col-8, .col-6 { width: 100%; }
-            .relay-grid { grid-template-columns: 1fr 1fr; }
-            .dac-control-card { min-height: auto; }
-            .dac-val-display { font-size: 3rem; }
-            header { flex-direction: column; align-items: flex-start; gap: 1rem; }
-            .header-status { flex-wrap: wrap; }
-        }
-
-        .section-title {
-            color: #3b82f6;
-            font-size: 0.9rem;
-            font-weight: 800;
-            margin-bottom: 0.8rem;
-            margin-top: 0;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 35px; /* Fixed height for alignment */
-            border-bottom: 2px solid rgba(59, 130, 246, 0.2);
-            padding-bottom: 4px;
-        }
-
-        /* Settings Dropdown Alignment */
-        details.settings-details {
-            margin-bottom: 1.5rem;
-            background: var(--card-color);
-            border-radius: 10px;
-            border: 1px solid var(--border-color);
-            overflow: hidden;
-            transition: var(--transition);
-        }
-
-        details.settings-details[open] { border-color: var(--siemens-teal); }
-
-        summary.settings-summary {
-            padding: 1rem;
-            cursor: pointer;
-            list-style: none;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: 800;
-            color: var(--siemens-teal);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            background: rgba(255, 255, 255, 0.02);
-            outline: none;
-        }
-
-        summary.settings-summary::after {
-            content: '▼';
-            font-size: 0.7rem;
-            transition: transform 0.2s;
-        }
-
-        details[open] summary.settings-summary::after { transform: rotate(180deg); }
-        summary.settings-summary:hover { background: rgba(255, 255, 255, 0.05); }
-
-        .settings-content { padding: 1.2rem; }
-
-        .card {
-            background: var(--card-color);
-            border-radius: 10px;
-            padding: 1rem;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Buttons & Interactions */
-        .btn {
-            background: #2d3748;
-            border: none;
-            color: white;
-            padding: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            border-radius: 6px;
-            transition: var(--transition);
-            outline: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            width: 100%;
-        }
-
-        .btn:hover { background: #3d4a5f; }
-        .btn:active { transform: scale(0.96); }
-        .btn.active { 
-            background: var(--siemens-teal); 
-            box-shadow: 0 0 15px rgba(0, 153, 153, 0.5);
-            color: white;
-        }
-
-        .reset-btn {
-            background: rgba(255, 59, 59, 0.1);
-            border: 1px solid rgba(255, 59, 59, 0.3);
-            color: var(--danger-color);
-            padding: 0.3rem 0.6rem;
-            font-size: 0.7rem;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: var(--transition);
-            text-transform: uppercase;
-            font-weight: bold;
-        }
-
-        .reset-btn:hover { background: var(--danger-color); color: white; }
-
-        /* Relay Grouping */
-        .relay-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-            padding: 0.8rem;
-            background: rgba(255, 255, 255, 0.02);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .relay-group-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 0.5rem;
-        }
-
-        .relay-group-title {
-            color: var(--siemens-teal);
-            font-size: 0.8rem;
-            font-weight: 800;
-        }
-
-        .relay-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-        }
-
-        .relay-btn-wrap {
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
-        }
-
-        .relay-item-header {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.65rem;
-            color: var(--gray-text);
-            padding: 0 2px;
-        }
-
-        /* DAC Layout */
-        .dac-control-card {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            padding: 1.2rem;
-            background: rgba(255, 255, 255, 0.02);
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            min-height: 280px;
-        }
-
-        .dac-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            width: 100%;
-        }
-
-        .dac-title-group {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .dac-val-display { 
-            font-size: 3.5rem; 
-            font-weight: 900; 
-            color: var(--siemens-teal); 
-            text-align: center;
-            letter-spacing: -2px;
-            margin: 0.4rem 0;
-            text-shadow: 0 0 25px rgba(0, 153, 153, 0.4);
-            line-height: 1;
-        }
-
-        .dac-input-group {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            margin-top: 0.5rem;
-        }
-
-        .dac-num-input {
-            width: 80px;
-            background: var(--input-bg);
-            border: 1px solid var(--border-color);
-            color: var(--siemens-teal);
-            padding: 0.4rem;
-            border-radius: 4px;
-            font-weight: bold;
-            text-align: center;
-            font-size: 1.1rem;
-        }
-        
-        input[type="range"] {
-            width: 100%;
-            accent-color: var(--siemens-teal);
-            height: 4px;
-            background: #2d3748;
-            border-radius: 2px;
-            cursor: pointer;
-        }
-
-        /* System Log Professional Alignment */
-        .log-entry { 
-            display: grid; 
-            grid-template-columns: 75px 65px 1fr; 
-            gap: 8px; 
-            margin-bottom: 2px; 
-            border-bottom: 1px solid rgba(255,255,255,0.03); 
-            padding: 4px 0;
-            align-items: baseline;
-        }
-        .log-time { color: var(--gray-text); font-weight: 600; font-size: 0.75rem; }
-        .log-type { font-weight: 800; font-size: 0.7rem; color: var(--siemens-teal); text-transform: uppercase; }
-        .log-msg { color: #e2e8f0; font-size: 0.8rem; word-break: break-all; }
-        
-        /* Professional WiFi List */
-        .wifi-list {
-            background: var(--input-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            max-height: 200px;
-            overflow-y: auto;
-            margin-bottom: 1rem;
-        }
-        .wifi-item {
-            padding: 0.8rem 1rem;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-            cursor: pointer;
-            transition: var(--transition);
-            font-size: 0.85rem;
-            width: 100%;
-        }
-        .wifi-item:hover { background: rgba(16, 185, 129, 0.1); }
-        .wifi-item:last-child { border-bottom: none; }
-        .wifi-name { 
-            font-weight: 600; 
-            color: #e2e8f0; 
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: ellipsis;
-            padding-right: 15px;
-            flex-grow: 1;
-        }
-        .wifi-meta { 
-            display: flex; 
-            align-items: center; 
-            gap: 12px; 
-            color: var(--gray-text); 
-            font-size: 0.75rem; 
-            flex-shrink: 0;
-            white-space: nowrap;
-        }
-        .signal-bars { display: flex; gap: 2px; align-items: flex-end; height: 16px; flex-shrink: 0; }
-        .bar { width: 4px; background: #334155; border-radius: 1px; }
-        .bar.fill { background: #10b981; box-shadow: 0 0 5px rgba(16, 185, 129, 0.4); }
-        .bar:nth-child(1) { height: 5px; }
-        .bar:nth-child(2) { height: 9px; }
-        .bar:nth-child(3) { height: 12px; }
-        .bar:nth-child(4) { height: 16px; }
-
-        /* Side-by-Side Flex for Groups */
-        .groups-row {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1.5rem;
-        }
-        @media (max-width: 1024px) { .groups-row { grid-template-columns: 1fr; } }
-
-        /* Offline Overlay */
-        #offline-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(9, 14, 20, 0.95);
-            z-index: 3000;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 2rem;
-        }
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(0, 153, 153, 0.2);
-            border-top: 4px solid var(--siemens-teal);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 2rem;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <div id="login-overlay">
         <div class="login-card">
-            <img src="/charger.png" alt="SICHARGE D" class="login-img" onerror="this.src='https://via.placeholder.com/180x300?text=SICHARGE+D'">
-            <div class="login-title">LOGIN</div>
-            <form class="login-form" onsubmit="event.preventDefault(); handleLogin();">
-                <input type="text" id="login-username" class="login-input" placeholder="Username" required>
+            <img src="/charger.png" alt="SICHARGE D" class="login-img">
+            <div class="login-title">Secure Login</div>
+            <form class="login-form" id="login-form">
+                <input type="text" id="login-username" class="login-input" placeholder="Username" value="admin" required>
                 <input type="password" id="login-password" class="login-input" placeholder="Password" required>
                 <button type="submit" class="login-btn">Authorize</button>
             </form>
-            <div id="login-error" style="color: var(--danger-color); font-size: 0.8rem; margin-top: 1rem; display: none;">Invalid credentials</div>
+            <div id="login-error" class="error-text">Invalid credentials</div>
         </div>
     </div>
 
     <div id="offline-overlay">
         <div class="spinner"></div>
-        <h2 style="color: var(--siemens-teal); letter-spacing: 2px;">SYSTEM RECONNECTING</h2>
-        <p style="color: var(--gray-text); max-width: 400px;">The system is applying new network settings and will reboot. You will be redirected once the connection is restored.</p>
+        <h2>System Reconnecting</h2>
+        <p>The controller is applying network changes. The dashboard will refresh when the device is reachable again.</p>
     </div>
 
     <div id="main-container">
-        <header>
+        <header class="topbar">
             <div class="brand">
                 <h1>SIEMENS</h1>
-                <h2>SICHARGE D MONITOR</h2>
+                <p>SICHARGE D MONITOR</p>
             </div>
-            <div class="header-status">
-                <div class="status-badge offline" id="badge-wifi" data-cy="status-wifi"><div class="status-dot"></div> WIFI</div>
-                <div class="status-badge offline" id="badge-mqtt" data-cy="status-mqtt"><div class="status-dot"></div> MQTT</div>
-                <div class="status-badge offline" id="badge-modbus" data-cy="status-modbus"><div class="status-dot"></div> MODBUS</div>
-                <div class="status-ip" id="display-ip" style="margin-left: 10px;" data-cy="display-ip">---.---.---.---</div>
-                <button class="reset-btn" style="border-color: var(--border-color); color: var(--gray-text); background: transparent; margin-left: 10px;" onclick="logout()" data-cy="logout-btn">LOGOUT</button>
+            <div class="topbar-right">
+                <div class="status-row">
+                    <div class="status-badge offline" id="badge-wifi" data-cy="status-wifi"><span class="status-dot"></span>WIFI</div>
+                    <div class="status-badge offline" id="badge-mqtt" data-cy="status-mqtt"><span class="status-dot"></span>MQTT</div>
+                    <div class="status-badge offline" id="badge-modbus" data-cy="status-modbus"><span class="status-dot"></span>MODBUS</div>
+                </div>
+                <div class="topbar-meta">
+                    <div class="status-ip" id="display-ip" data-cy="display-ip">Connected IP: ---.---.---.---</div>
+                    <button class="ghost-btn" id="logout-btn" data-cy="logout-btn">LOGOUT</button>
+                </div>
             </div>
         </header>
 
-        <div class="grid-layout">
-            <!-- Left: System Status & Control -->
-            <div class="col-4">
-                <div class="section-title">CONFIGURATION</div>
-                <details class="settings-details">
-                    <summary class="settings-summary">Network & Connectivity Settings</summary>
-                    <div class="settings-content">
-                        <div style="margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center;">
-                            <span id="wifi-status" style="font-size: 0.8rem; color: var(--gray-text);" data-cy="wifi-status-text">Status: Disconnected</span>
-                            <button class="reset-btn" style="border-color: var(--siemens-teal); color: var(--siemens-teal);" onclick="startScan()" data-cy="scan-wifi-btn">SCAN WIFI</button>
+        <main class="dashboard-shell">
+            <aside class="sidebar">
+                <section class="panel-section">
+                    <div class="section-heading">CONFIGURATION</div>
+                    <article class="panel-card collapsible-card">
+                        <button class="collapse-toggle" type="button" id="network-panel-toggle">
+                            <span>NETWORK &amp; CONNECTIVITY SETTINGS</span>
+                            <span class="collapse-arrow" id="network-panel-arrow">▼</span>
+                        </button>
+                        <div class="collapse-body" id="network-panel-body">
+                            <div class="inline-row">
+                                <span id="wifi-status" data-cy="wifi-status-text">Status: Disconnected</span>
+                                <button class="small-btn accent-btn" id="scan-wifi-btn" data-cy="scan-wifi-btn">SCAN WIFI</button>
+                            </div>
+                            <div class="wifi-list" id="wifi-list">
+                                <div class="empty-state">No networks found</div>
+                            </div>
+                            <div class="field-stack">
+                                <input type="text" id="wifi-ssid" class="login-input" placeholder="SSID" data-cy="wifi-ssid-input">
+                                <input type="password" id="wifi-pass" class="login-input" placeholder="Password" data-cy="wifi-pass-input">
+                                <button class="primary-btn" id="save-connect-btn" data-cy="save-connect-btn">SAVE &amp; CONNECT</button>
+                            </div>
+                            <div class="security-divider"></div>
+                            <div class="field-stack">
+                                <input type="text" id="security-admin-user" class="login-input" placeholder="Admin username">
+                                <input type="password" id="security-admin-pass" class="login-input" placeholder="New admin password (min 8 chars)">
+                                <input type="password" id="security-ota-pass" class="login-input" placeholder="OTA password">
+                                <button class="primary-btn secondary-fill" id="save-security-btn">UPDATE CREDENTIALS</button>
+                            </div>
+                            <p class="helper-text" id="security-status-text">Credentials loaded.</p>
                         </div>
-                        <div class="wifi-list" id="wifi-list" style="margin-bottom: 1rem;">
-                            <div style="padding: 1rem; text-align: center; color: var(--gray-text); font-size: 0.9rem;">No networks found</div>
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
-                            <input type="text" id="wifi-ssid" class="login-input" placeholder="SSID" data-cy="wifi-ssid-input">
-                            <input type="password" id="wifi-pass" class="login-input" placeholder="Password" data-cy="wifi-pass-input">
-                            <button class="btn active" id="btn-connect" onclick="connectWifi()" data-cy="save-connect-btn">SAVE & CONNECT</button>
+                    </article>
+                </section>
+
+                <section class="panel-section">
+                    <div class="section-heading section-heading-with-actions">
+                        <span>SYSTEM EVENT LOG</span>
+                        <div class="section-actions">
+                            <button class="small-btn danger-btn" id="clear-logs-btn" data-cy="clear-logs-btn">CLEAR</button>
+                            <button class="small-btn accent-btn" id="download-logs-btn">EXPORT</button>
                         </div>
                     </div>
-                </details>
-
-                <div class="section-title">
-                    <span>SYSTEM EVENT LOG</span>
-                    <div style="display:flex; gap: 5px;">
-                        <button class="reset-btn" style="font-size:0.6rem" onclick="clearLogs()" data-cy="clear-logs-btn">CLEAR</button>
-                        <button class="reset-btn" style="font-size:0.6rem; border-color: var(--siemens-teal); color: var(--siemens-teal);" onclick="downloadLogs()" data-cy="export-logs-btn">EXPORT</button>
+                    <div class="log-panel">
+                        <div class="log-container" id="log-container" data-cy="log-container"></div>
                     </div>
-                </div>
-                <div class="system-log" id="log-container" data-cy="log-container"></div>
-            </div>
+                </section>
+            </aside>
 
-            <!-- Right: Hardware Controls -->
-            <div class="col-8">
-                <div class="section-title" data-cy="relay-control-center-title">
-                    <span>RELAY CONTROL CENTER</span>
-                    <button class="reset-btn" onclick="resetAllRelays()" data-cy="reset-all-relays-btn">RESET ALL RELAYS</button>
-                </div>
-                
-                <div class="card" style="display: flex; flex-direction: column; gap: 1.5rem;">
-                    <!-- Group 1: Feedback Relay -->
-                        <div class="relay-group" data-cy="relay-group-1">
-                        <div class="relay-group-header">
-                            <span class="relay-group-title" data-cy="relay-group-1-title">GROUP 1: FEEDBACK RELAY</span>
-                            <button class="reset-btn" onclick="resetRelayGroup([0,1,2,3])" data-cy="reset-group-1-btn">RESET GROUP</button>
-                        </div>
-                        <div class="relay-grid">
-                            <div class="relay-btn-wrap">
-                                <div class="relay-item-header" data-cy="relay-0-header"><span>R1</span></div>
-                                <button class="btn" id="btn-r0" onclick="toggleRelay(0)" data-cy="relay-btn-0">DC1 FB</button>
-                            </div>
-                            <div class="relay-btn-wrap">
-                                <div class="relay-item-header" data-cy="relay-1-header"><span>R2</span></div>
-                                <button class="btn" id="btn-r1" onclick="toggleRelay(1)" data-cy="relay-btn-1">DC2 FB</button>
-                            </div>
-                            <div class="relay-btn-wrap">
-                                <div class="relay-item-header" data-cy="relay-2-header"><span>R3</span></div>
-                                <button class="btn" id="btn-r2" onclick="toggleRelay(2)" data-cy="relay-btn-2">DC3 FB</button>
-                            </div>
-                            <div class="relay-btn-wrap">
-                                <div class="relay-item-header" data-cy="relay-3-header"><span>R4</span></div>
-                                <button class="btn" id="btn-r3" onclick="toggleRelay(3)" data-cy="relay-btn-3">DC4 FB</button>
-                            </div>
-                        </div>
+            <section class="content">
+                <section class="panel-section">
+                    <div class="section-heading section-heading-with-actions" data-cy="relay-control-center-title">
+                        <span>RELAY CONTROL CENTER</span>
+                        <button class="small-btn danger-btn" id="reset-all-relays-btn" data-cy="reset-all-relays-btn">RESET ALL RELAYS</button>
                     </div>
-
-                    <div class="groups-row">
-                        <!-- Group 2: 24V DC Relay -->
-                        <div class="relay-group" data-cy="relay-group-2">
+                    <div class="relay-shell">
+                        <article class="relay-group relay-group-wide" data-cy="relay-group-1">
                             <div class="relay-group-header">
-                                <span class="relay-group-title" data-cy="relay-group-2-title">GROUP 2: 24V DC</span>
-                                <button class="reset-btn" onclick="resetRelayGroup([4,5])" data-cy="reset-group-2-btn">RST</button>
+                                <span class="relay-group-title">GROUP 1: FEEDBACK RELAY</span>
+                                <button class="small-btn danger-btn" id="reset-group-1-btn" data-cy="reset-group-1-btn">RESET GROUP</button>
                             </div>
-                            <div class="relay-grid" style="grid-template-columns: 1fr 1fr;">
-                                <div class="relay-btn-wrap">
-                                    <div class="relay-item-header" data-cy="relay-4-header"><span>R5</span></div>
-                                    <button class="btn" id="btn-r4" onclick="toggleRelay(4)" data-cy="relay-btn-4">DC1 24V</button>
-                                </div>
-                                <div class="relay-btn-wrap">
-                                    <div class="relay-item-header" data-cy="relay-5-header"><span>R6</span></div>
-                                    <button class="btn" id="btn-r5" onclick="toggleRelay(5)" data-cy="relay-btn-5">DC2 24V</button>
-                                </div>
+                            <div class="relay-grid relay-grid-four">
+                                <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-0-header"><span>R1</span></div><button class="relay-btn" id="btn-r0" data-cy="relay-btn-0">DC1 FB</button></div>
+                                <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-1-header"><span>R2</span></div><button class="relay-btn" id="btn-r1" data-cy="relay-btn-1">DC2 FB</button></div>
+                                <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-2-header"><span>R3</span></div><button class="relay-btn" id="btn-r2" data-cy="relay-btn-2">DC3 FB</button></div>
+                                <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-3-header"><span>R4</span></div><button class="relay-btn" id="btn-r3" data-cy="relay-btn-3">DC4 FB</button></div>
                             </div>
-                        </div>
+                        </article>
 
-                        <!-- Group 3: Main Group Relay -->
-                        <div class="relay-group" data-cy="relay-group-3">
-                            <div class="relay-group-header">
-                                <span class="relay-group-title" data-cy="relay-group-3-title">GROUP 3: MAIN</span>
-                                <button class="reset-btn" onclick="resetRelayGroup([6,7])" data-cy="reset-group-3-btn">RST</button>
-                            </div>
-                            <div class="relay-grid" style="grid-template-columns: 1fr 1fr;">
-                                <div class="relay-btn-wrap">
-                                    <div class="relay-item-header" data-cy="relay-6-header"><span>R7</span></div>
-                                    <button class="btn" id="btn-r6" onclick="toggleRelay(6)" data-cy="relay-btn-6">MG1 FB</button>
+                        <div class="relay-lower-grid">
+                            <article class="relay-group" data-cy="relay-group-2">
+                                <div class="relay-group-header">
+                                    <span class="relay-group-title">GROUP 2: 24V DC</span>
+                                    <button class="small-btn danger-btn" id="reset-group-2-btn" data-cy="reset-group-2-btn">RST</button>
                                 </div>
-                                <div class="relay-btn-wrap">
-                                    <div class="relay-item-header" data-cy="relay-7-header"><span>R8</span></div>
-                                    <button class="btn" id="btn-r7" onclick="toggleRelay(7)" data-cy="relay-btn-7">MG2 FB</button>
+                                <div class="relay-grid">
+                                    <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-4-header"><span>R5</span></div><button class="relay-btn" id="btn-r4" data-cy="relay-btn-4">DC1 24V</button></div>
+                                    <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-5-header"><span>R6</span></div><button class="relay-btn" id="btn-r5" data-cy="relay-btn-5">DC2 24V</button></div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                            </article>
 
-                <div class="section-title" style="margin-top: 1.5rem;" data-cy="dac-control-title">ANALOG VOLTAGE CONTROL (DAC)</div>
-                <div class="grid-layout" style="gap: 1.5rem; grid-template-columns: repeat(2, 1fr);">
-                    <!-- DAC 1 -->
-                    <div class="card dac-control-card" data-cy="dac-control-1">
-                        <div class="dac-header">
-                            <div class="dac-title-group">
-                                <span class="relay-group-title" style="font-size: 0.9rem; letter-spacing: 1px;" data-cy="dac-1-title">TF VOLTAGE</span>
-                                <span style="font-size: 0.7rem; color: var(--gray-text)" data-cy="dac-1-range">(Range: 2.0 - 3.0V)</span>
-                            </div>
-                            <button class="reset-btn" onclick="resetDAC(1)" data-cy="reset-dac-1-btn">RESET</button>
-                        </div>
-                        <div class="dac-val-display" id="val-dac1" data-cy="dac-val-1">2.0 V</div>
-                        <div class="dac-input-group">
-                            <input type="range" id="range-dac1" min="2.0" max="3.0" step="0.1" value="2.0" oninput="syncDAC(1, this.value, 'range')" data-cy="dac-range-1">
-                            <input type="number" id="num-dac1" class="dac-num-input" min="2.0" max="3.0" step="0.1" value="2.0" onchange="syncDAC(1, this.value, 'num')" data-cy="dac-num-1">
+                            <article class="relay-group" data-cy="relay-group-3">
+                                <div class="relay-group-header">
+                                    <span class="relay-group-title">GROUP 3: MAIN</span>
+                                    <button class="small-btn danger-btn" id="reset-group-3-btn" data-cy="reset-group-3-btn">RST</button>
+                                </div>
+                                <div class="relay-grid">
+                                    <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-6-header"><span>R7</span></div><button class="relay-btn" id="btn-r6" data-cy="relay-btn-6">MG1 FB</button></div>
+                                    <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-7-header"><span>R8</span></div><button class="relay-btn" id="btn-r7" data-cy="relay-btn-7">MG2 FB</button></div>
+                                </div>
+                            </article>
                         </div>
                     </div>
-                    <!-- DAC 2 -->
-                    <div class="card dac-control-card" data-cy="dac-control-2">
-                        <div class="dac-header">
-                            <div class="dac-title-group">
-                                <span class="relay-group-title" style="font-size: 0.9rem; letter-spacing: 1px;" data-cy="dac-2-title">DISPENSER TEMP</span>
-                                <span style="font-size: 0.7rem; color: var(--gray-text)" data-cy="dac-2-range">(Range: 4.0 - 9.0V)</span>
+                </section>
+
+                <section class="panel-section">
+                    <div class="section-heading" data-cy="dac-control-title">ANALOG VOLTAGE CONTROL (DAC)</div>
+                    <div class="dac-grid">
+                        <article class="dac-card" data-cy="dac-control-1">
+                            <div class="dac-header">
+                                <div>
+                                    <div class="relay-group-title" data-cy="dac-1-title">TF VOLTAGE</div>
+                                    <div class="helper-text dac-range-text" data-cy="dac-1-range">(Range: 2.0 - 3.0V)</div>
+                                </div>
+                                <button class="small-btn danger-btn" id="reset-dac-1-btn" data-cy="reset-dac-1-btn">RESET</button>
                             </div>
-                            <button class="reset-btn" onclick="resetDAC(2)" data-cy="reset-dac-2-btn">RESET</button>
-                        </div>
-                        <div class="dac-val-display" id="val-dac2" data-cy="dac-val-2">4.0 V</div>
-                        <div class="dac-input-group">
-                            <input type="range" id="range-dac2" min="4.0" max="9.0" step="0.1" value="4.0" oninput="syncDAC(2, this.value, 'range')" data-cy="dac-range-2">
-                            <input type="number" id="num-dac2" class="dac-num-input" min="4.0" max="9.0" step="0.1" value="4.0" onchange="syncDAC(2, this.value, 'num')" data-cy="dac-num-2">
-                        </div>
-                        <button class="btn" style="margin-top: 1rem; background: rgba(0, 153, 153, 0.1); border: 1px solid var(--siemens-teal); color: var(--siemens-teal);" onclick="startAutoProgram(2)" data-cy="execute-stepwise-btn">EXECUTE STEPWISE PROGRAM (4V-9V)</button>
+                            <div class="dac-val-display" id="val-dac1" data-cy="dac-val-1">2.0 V</div>
+                            <div class="dac-input-row">
+                                <input type="range" id="range-dac1" min="2.0" max="3.0" step="0.1" value="2.0" data-cy="dac-range-1">
+                                <input type="number" id="num-dac1" class="dac-num-input" min="2.0" max="3.0" step="0.1" value="2.0" data-cy="dac-num-1">
+                            </div>
+                        </article>
+
+                        <article class="dac-card" data-cy="dac-control-2">
+                            <div class="dac-header">
+                                <div>
+                                    <div class="relay-group-title" data-cy="dac-2-title">DISPENSER TEMP</div>
+                                    <div class="helper-text dac-range-text" data-cy="dac-2-range">(Range: 4.0 - 9.0V)</div>
+                                </div>
+                                <button class="small-btn danger-btn" id="reset-dac-2-btn" data-cy="reset-dac-2-btn">RESET</button>
+                            </div>
+                            <div class="dac-val-display" id="val-dac2" data-cy="dac-val-2">4.0 V</div>
+                            <div class="dac-input-row">
+                                <input type="range" id="range-dac2" min="4.0" max="9.0" step="0.1" value="4.0" data-cy="dac-range-2">
+                                <input type="number" id="num-dac2" class="dac-num-input" min="4.0" max="9.0" step="0.1" value="4.0" data-cy="dac-num-2">
+                            </div>
+                            <button class="program-btn" id="execute-stepwise-btn" data-cy="execute-stepwise-btn">EXECUTE STEPWISE PROGRAM (4V-9V)</button>
+                        </article>
                     </div>
-                </div>
-            </div>
-        </div>
-        <footer>
+                </section>
+            </section>
+        </main>
+
+        <footer class="footer">
             <div>&copy; 2026 SIEMENS AG | SICHARGE D Monitor v1.6</div>
             <div>Connected via WebSocket | @Canditos</div>
         </footer>
     </div>
 
-    <script>
-        const RELAY_NAMES = [
-            "DC1 FB", "DC2 FB", "DC3 FB", "DC4 FB",
-            "DC1 24V", "DC2 24V", "MG1 FB", "MG2 FB"
-        ];
-
-        let ws;
-        let relayStates = new Array(8).fill(null); // Null to detect first load
-        let dacValues = [null, null]; // [valCh1, valCh2]
-        let isAuthenticated = false;
-        let firstLoad = true;
-        let scanTimer;        function addLog(msg, type = 'SYS') {
-            const container = document.getElementById('log-container');
-            if(!container) return;
-            
-            const now = new Date();
-            const time = now.getHours().toString().padStart(2, '0') + ':' + 
-                         now.getMinutes().toString().padStart(2, '0') + ':' + 
-                         now.getSeconds().toString().padStart(2, '0');
-            
-            const entry = document.createElement('div');
-            entry.className = 'log-entry';
-            entry.innerHTML = `<span class="log-time">${time}</span><span class="log-type">${type}</span><span class="log-msg">${msg}</span>`;
-            
-            container.prepend(entry);
-            if(container.children.length > 200) container.removeChild(container.lastChild);
-        }
-     function clearLogs() {
-            document.getElementById('log-container').innerHTML = '';
-            addLog('Logs cleared', 'INFO');
-        }
-
-        function downloadLogs() {
-            const container = document.getElementById('log-container');
-            const text = Array.from(container.querySelectorAll('.log-entry')).reverse().map(e => {
-                const time = e.querySelector('.log-time').innerText;
-                const type = e.querySelector('.log-type').innerText;
-                const msg = e.querySelector('.log-msg').innerText;
-                return `${time} | ${type} | ${msg}`;
-            }).join('\n');
-            
-            const blob = new Blob([text], {type: 'text/plain'});
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `sicharge_logs_${new Date().toISOString().split('.')[0]}.txt`;
-            a.click();
-        }
-
-        function handleLogin() {
-            const u = document.getElementById('login-username').value;
-            const p = document.getElementById('login-password').value;
-            if(u==='admin' && p==='admin123') {
-                document.getElementById('login-overlay').style.display='none';
-                document.getElementById('main-container').style.display='flex';
-                isAuthenticated = true;
-                initWS();
-                updateWifiStatus();
-                setInterval(updateWifiStatus, 15000);
-                addLog('User Authorized: admin', 'suc');
-            } else {
-                document.getElementById('login-error').style.display='block';
-            }
-        }
-
-        function logout() { location.reload(); }
-
-        function initWS() {
-            ws = new WebSocket(`ws://${location.hostname}:81/`);
-            ws.onopen = () => addLog('Real-time connection open', 'suc');
-            ws.onclose = () => { addLog('Connection lost. Retrying...', 'err'); setTimeout(initWS, 2000); };
-            ws.onmessage = (e) => {
-                const data = JSON.parse(e.data);
-                if(data.type === 'init' || data.type === 'update') updateUI(data);
-            };
-        }
-
-        let firstLoadProcessed = false;
-        function updateUI(data) {
-            if(data.mqtt !== undefined) updateStatusBadge('mqtt', data.mqtt);
-            if(data.modbus !== undefined) updateStatusBadge('modbus', data.modbus);
-            
-            if(data.relays) {
-                data.relays.forEach((s, i) => {
-                    const oldS = relayStates[i];
-                    const b = document.getElementById(`btn-r${i}`);
-                    if(b) {
-                        if (s) b.classList.add('active'); else b.classList.remove('active');
-                    }
-                    if (firstLoadProcessed && oldS !== null && oldS !== s) {
-                        const name = RELAY_NAMES[i] || `Relay ${i + 1}`;
-                        addLog(`${name} is now ${s ? 'ON' : 'OFF'}`, 'RELAY');
-                    }
-                    relayStates[i] = s;
-                });
-                firstLoadProcessed = true;
-            } else if(data.idx !== undefined) {
-                const oldS = relayStates[data.idx];
-                const s = data.state;
-                const b = document.getElementById(`btn-r${data.idx}`);
-                if(b) {
-                    if (s) b.classList.add('active'); else b.classList.remove('active');
-                }
-                if (firstLoadProcessed && oldS !== null && oldS !== s) {
-                    const name = RELAY_NAMES[data.idx] || `Relay ${data.idx + 1}`;
-                    addLog(`${name} is now ${s ? 'ON' : 'OFF'}`, 'RELAY');
-                }
-                relayStates[data.idx] = s;
-            }
-            
-            if(data.v1 !== undefined) {
-                const valNum = parseFloat(data.v1);
-                const valStr = valNum.toFixed(1);
-                const oldVal = dacValues[0];
-                
-                if (firstLoadProcessed && oldVal !== null && oldVal !== valStr) {
-                    addLog(`TF VOLTAGE set to ${valStr}V`, 'DAC');
-                }
-                document.getElementById('val-dac1').innerText = valStr + ' V';
-                document.getElementById('range-dac1').value = valNum;
-                document.getElementById('num-dac1').value = valStr;
-                dacValues[0] = valStr;
-            }
-            if(data.v2 !== undefined) {
-                const valNum = parseFloat(data.v2);
-                const valStr = valNum.toFixed(1);
-                const oldVal = dacValues[1];
-                
-                if (firstLoadProcessed && oldVal !== null && oldVal !== valStr) {
-                    addLog(`DISPENSER TEMP set to ${valStr}V`, 'DAC');
-                }
-                document.getElementById('val-dac2').innerText = valStr + ' V';
-                document.getElementById('range-dac2').value = valNum;
-                document.getElementById('num-dac2').value = valStr;
-                dacValues[1] = valStr;
-            }
-        }
-
-        function updateStatusBadge(id, isOnline) {
-            const badge = document.getElementById(`badge-${id}`);
-            if(!badge) return;
-            badge.classList.remove('online', 'offline', 'connecting');
-            badge.classList.add(isOnline ? 'online' : 'offline');
-        }
-
-        function toggleRelay(idx) {
-            const s = !relayStates[idx];
-            // Send command (Confirmed state will arrive via WS)
-            ws.send(JSON.stringify({cmd: 'relay', idx: idx, state: s}));
-        }
-
-        function resetRelay(idx) {
-            ws.send(JSON.stringify({cmd: 'relay', idx: idx, state: false}));
-        }
-
-        function resetRelayGroup(indices) {
-            addLog(`Resetting Group...`, 'INFO');
-            indices.forEach(idx => {
-                ws.send(JSON.stringify({cmd: 'relay', idx: idx, state: false}));
-            });
-        }
-
-        function resetAllRelays() {
-            addLog(`Global Reset initiated`, 'err');
-            ws.send(JSON.stringify({cmd: 'relay_mask', mask: 0}));
-            for(let i=0; i<8; i++) {
-                relayStates[i] = false;
-                const b = document.getElementById(`btn-r${i}`);
-                if(b) b.classList.remove('active');
-            }
-        }
-
-        function syncDAC(ch, val, source) {
-            let v = parseFloat(val);
-            const min = ch === 1 ? 2.0 : 4.0;
-            const max = ch === 1 ? 3.0 : 9.0;
-            
-            // Validate
-            if(isNaN(v)) return;
-            if(v < min) v = min;
-            if(v > max) v = max;
-            
-            // Sync Visuals
-            document.getElementById(`val-dac${ch}`).innerText = v.toFixed(1) + ' V';
-            if(source !== 'range') document.getElementById(`range-dac${ch}`).value = v;
-            if(source !== 'num') document.getElementById(`num-dac${ch}`).value = v.toFixed(1);
-            
-            // Send to Backend
-            updateDAC(ch, v);
-        }
-
-        function updateDAC(ch, val) {
-            ws.send(JSON.stringify({cmd: 'dac', channel: ch, voltage: parseFloat(val)}));
-        }
-
-        function resetDAC(ch) { syncDAC(ch, ch===1?2.0:4.0, 'reset'); }
-
-        function autoRamp(ch, target, dur) {
-            addLog(`Triggering Ramp Ch${ch} -> ${target}V`, 'INFO');
-            ws.send(JSON.stringify({cmd: 'ramp', channel: ch, target: target, duration: dur}));
-        }
-
-        function startAutoProgram(ch) {
-            addLog(`Executing Stepwise Program on Ch${ch}...`, 'INFO');
-            // Program: 4V to 9V, steps of 0.5V, 5s per step (per user request)
-            ws.send(JSON.stringify({
-                cmd: 'step_ramp', 
-                channel: ch, 
-                start: 4.0, 
-                target: 9.0, 
-                step: 0.5, 
-                duration: 5000 
-            }));
-        }
-
-        async function updateWifiStatus() {
-            try {
-                const res = await fetch('/api/wifi/status');
-                const data = await res.json();
-                document.getElementById('display-ip').innerText = `Connected IP: ${data.ip || '---.---.---.---'}`;
-                document.getElementById('wifi-status').innerText = `Status: ${data.ssid ? 'Connected to ' + data.ssid : 'AP Mode active'}`;
-                updateStatusBadge('wifi', data.status === 3); // WL_CONNECTED is usually 3
-                
-                // If we were offline and now we are online, hide overlay
-                if (data.status === 3 && document.getElementById('offline-overlay').style.display === 'flex') {
-                    location.reload();
-                }
-            } catch(e) {}
-        }
-
-        async function startScan() {
-            const container = document.getElementById('wifi-list');
-            container.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--siemens-teal); font-size: 0.9rem;">Scanning...</div>';
-            addLog('Scanning for Wi-Fi networks...', 'INFO');
-            await fetch('/api/wifi/startScan', {method: 'POST'});
-            
-            if(scanTimer) clearInterval(scanTimer);
-            let attempts = 0;
-            scanTimer = setInterval(async () => {
-                attempts++;
-                const res = await fetch('/api/wifi/scan');
-                const list = await res.json();
-                if(Array.isArray(list) && list.length > 0) {
-                    clearInterval(scanTimer);
-                    container.innerHTML = list.map(n => {
-                        const level = Math.min(Math.max(2 * (n.rssi + 100), 0), 100);
-                        const bars = [20, 40, 60, 80].map(threshold => level >= threshold ? 'fill' : '').map(cls => `<div class="bar ${cls}"></div>`).join('');
-                        
-                        return `
-                        <div class="wifi-item" onclick="document.getElementById('wifi-ssid').value='${n.ssid}'; addLog('Selected Network: ${n.ssid}', 'INFO')">
-                            <span class="wifi-name">${n.ssid}</span>
-                            <div class="wifi-meta">
-                                <span>${n.rssi} dBm</span>
-                                <div class="signal-bars">${bars}</div>
-                                ${n.secure?'🔒':''}
-                            </div>
-                        </div>`;
-                    }).join('');
-                } else if (attempts > 10) {
-                    clearInterval(scanTimer);
-                    container.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--danger-color); font-size: 0.8rem;">No networks found</div>';
-                }
-            }, 2000);
-        }
-
-        async function connectWifi() {
-            const ssid = document.getElementById('wifi-ssid').value;
-            const pass = document.getElementById('wifi-pass').value;
-            if(!ssid) return alert('Select a network first');
-            
-            document.getElementById('offline-overlay').style.display = 'flex';
-            addLog(`Saving credentials for ${ssid}... System will reboot.`, 'INFO');
-            
-            try {
-                await fetch('/api/wifi/save', {
-                    method: 'POST',
-                    body: JSON.stringify({ssid, pass})
-                });
-            } catch(e) {
-                // Fetch might fail due to reboot, which is expected
-            }
-            
-            // Periodically check if we're back online
-            setInterval(updateWifiStatus, 5000);
-        }
-    </script>
+    <script src="/app.js"></script>
 </body>
 </html>

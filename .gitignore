@@ -1,6 +1,14 @@
 .pio
+.platformio-local
 .vscode
 node_modules
+tests/node_modules
+test-results
+tests/test-results
+cypress/downloads
+cypress/screenshots
+preview-dashboard.png
+.preview-server.cjs
 *.lib
 *.a
 *.o

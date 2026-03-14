@@ -1,7 +1,10 @@
 #include "OTAManager.h"
 
-void OTAManager::begin(const char* deviceId) {
+void OTAManager::begin(const char* deviceId, const char* otaPassword) {
     ArduinoOTA.setHostname(deviceId);
+    if (otaPassword != nullptr && strlen(otaPassword) > 0) {
+        ArduinoOTA.setPassword(otaPassword);
+    }
     
     ArduinoOTA.onStart([]() {
         String type;

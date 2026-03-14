@@ -28,3 +28,9 @@ struct NetworkConfig {
     char mqttPass[64];
     bool mqttEnabled;
 };
+
+struct SecurityConfig {
+    char adminUser[33];
+    char adminPass[64];
+    char otaPassword[64];
+};
