@@ -22,6 +22,7 @@ private:
     NetworkConfig netConfig;
     uint32_t lastReconnectAttempt;
     uint32_t lastPublishTime;
+    bool connected;
     
     void reconnect();
     void callback(char* topic, byte* payload, unsigned int length);

@@ -35,10 +35,9 @@ void ConfigManager::saveNetworkConfig(const NetworkConfig& config) {
 }
 
 void ConfigManager::loadHardwareState(DeviceState& state) {
+    uint8_t mask = prefs.getUChar("relays_mask", 0);
     for (uint8_t i = 0; i < Config::RELAY_COUNT; i++) {
-        char key[10];
-        snprintf(key, sizeof(key), "r_%d", i);
-        state.relays[i] = prefs.getBool(key, false);
+        state.relays[i] = (mask >> i) & 0x01;
     }
     state.dac1_v = prefs.getFloat("dac1", Config::DAC1_MIN_V);
     state.dac2_v = prefs.getFloat("dac2", Config::DAC2_MIN_V);
@@ -46,10 +45,17 @@ void ConfigManager::loadHardwareState(DeviceState& state) {
 
 void ConfigManager::saveRelayState(uint8_t index, bool state) {
     if (index < Config::RELAY_COUNT) {
-        char key[10];
-        snprintf(key, sizeof(key), "r_%d", index);
-        prefs.putBool(key, state);
+        uint8_t mask = prefs.getUChar("relays_mask", 0);
+        if (state) mask |= (1 << index);
+        else mask &= ~(1 << index);
+        prefs.putUChar("relays_mask", mask);
     }
+}
+
+void ConfigManager::saveRelayMask(uint8_t mask) {
+    uint8_t current = prefs.getUChar("relays_mask", 0);
+    if (current == mask) return; // Prevent redundant writes
+    prefs.putUChar("relays_mask", mask);
 }
 
 void ConfigManager::saveDACState(uint8_t channel, float voltage) {

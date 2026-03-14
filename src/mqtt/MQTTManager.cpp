@@ -3,7 +3,7 @@
 
 MQTTManager::MQTTManager(ConfigManager& configMgr, HardwareHAL& hal) 
     : config(configMgr), hardware(hal), client(espClient), 
-      lastReconnectAttempt(0), lastPublishTime(0) {}
+      lastReconnectAttempt(0), lastPublishTime(0), connected(false) {}
 
 void MQTTManager::begin() {
     config.loadNetworkConfig(netConfig);
@@ -16,7 +16,8 @@ void MQTTManager::begin() {
 void MQTTManager::loop() {
     if (!netConfig.mqttEnabled || WiFi.status() != WL_CONNECTED) return;
     
-    if (!client.connected()) {
+    connected = client.connected();
+    if (!connected) {
         uint32_t now = millis();
         if (now - lastReconnectAttempt > Config::MQTT_RECONNECT_INTERVAL_MS) {
             lastReconnectAttempt = now;
@@ -50,25 +51,26 @@ void MQTTManager::reconnect() {
 
 void MQTTManager::callback(char* topic, byte* payload, unsigned int length) {
     String t = String(topic);
-    char msg[64];
-    uint16_t len = (length < 63) ? length : 63;
-    memcpy(msg, payload, len);
-    msg[len] = '\0';
-    String p = String(msg);
+    DynamicJsonDocument doc(512);
+    DeserializationError error = deserializeJson(doc, payload, length);
     
     String base = "esp32/" + String(netConfig.deviceId) + "/";
     
-    if (t.startsWith(base + "relay/")) {
-        int idx = t.substring((base + "relay/").length(), t.lastIndexOf("/")).toInt();
-        if (t.endsWith("/set")) {
-            bool state = (p == "ON" || p == "1" || p == "true");
+    if (t == base + "command") {
+        if (error) return;
+        if (doc.containsKey("relay")) {
+            int idx = doc["relay"];
+            bool state = doc["state"];
             hardware.setRelay(idx, state);
         }
-    } else if (t == base + "output/set") {
-        DynamicJsonDocument doc(256);
-        deserializeJson(doc, p);
-        if (doc.containsKey("v1")) hardware.setDAC(1, doc["v1"]);
-        if (doc.containsKey("v2")) hardware.setDAC(2, doc["v2"]);
+        if (doc.containsKey("dac")) {
+            int ch = doc["dac"];
+            float v = doc["value"];
+            hardware.setDAC(ch, v);
+        }
+        publishStatus();
+    } else if (t == base + "status/req") {
+        publishStatus();
     }
 }
 

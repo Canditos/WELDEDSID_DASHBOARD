@@ -2,12 +2,15 @@
 
 HardwareHAL::HardwareHAL(ConfigManager& configMgr) : config(configMgr) {
     memset(&state, 0, sizeof(DeviceState));
+    memset(&prog, 0, sizeof(prog));
+    memset(&ramps, 0, sizeof(ramps));
 }
 
 void HardwareHAL::begin() {
-    // Initialize Relays as INPUT (OFF state for open drain)
+    // Initialize Relays as OUTPUT and set to HIGH (OFF for active-low)
     for (uint8_t i = 0; i < Config::RELAY_COUNT; i++) {
-        pinMode(Config::RELAY_PINS[i], INPUT);
+        pinMode(Config::RELAY_PINS[i], OUTPUT);
+        digitalWrite(Config::RELAY_PINS[i], HIGH);
     }
     
     // Initialize I2C for DAC
@@ -28,15 +31,36 @@ void HardwareHAL::setRelay(uint8_t index, bool on) {
     if (index >= Config::RELAY_COUNT) return;
     
     state.relays[index] = on;
+    uint8_t pin = Config::RELAY_PINS[index];
+    
     if (on) {
-        // ON: Drive LOW
-        pinMode(Config::RELAY_PINS[index], OUTPUT);
-        digitalWrite(Config::RELAY_PINS[index], LOW);
+        // ON: Drive LOW (Active-Low relay)
+        digitalWrite(pin, LOW);
+        Serial.printf("[HAL] Relay %d (Pin %d) -> ON (LOW)\n", index + 1, pin);
     } else {
-        // OFF: High Impedance (Floating)
-        pinMode(Config::RELAY_PINS[index], INPUT);
+        // OFF: Drive HIGH
+        digitalWrite(pin, HIGH);
+        Serial.printf("[HAL] Relay %d (Pin %d) -> OFF (HIGH)\n", index + 1, pin);
     }
-    config.saveRelayState(index, on);
+    
+    // Save full mask to ensure consistency
+    uint8_t mask = 0;
+    for (int i = 0; i < Config::RELAY_COUNT; i++) {
+        if (state.relays[i]) mask |= (1 << i);
+    }
+    config.saveRelayMask(mask);
+    _changed = true;
+}
+
+void HardwareHAL::setRelayMask(uint8_t mask) {
+    Serial.printf("[HAL] Applying Relay Mask: 0x%02X\n", mask);
+    for (uint8_t i = 0; i < Config::RELAY_COUNT; i++) {
+        bool on = (mask >> i) & 0x01;
+        state.relays[i] = on;
+        digitalWrite(Config::RELAY_PINS[i], on ? LOW : HIGH);
+    }
+    _changed = true;
+    config.saveRelayMask(mask);
 }
 
 bool HardwareHAL::getRelay(uint8_t index) const {
@@ -60,7 +84,12 @@ void HardwareHAL::setDAC(uint8_t channel, float voltage) {
     
     uint16_t dacVal = voltageToDAC(voltage);
     writeGP8403(channel - 1, dacVal); // GP8403 uses 0-indexed channels internally
-    config.saveDACState(channel, voltage);
+    
+    // Only save to NVS if no ramp is active for this channel to prevent NVS wear/lag
+    if (!ramps[channel-1].active) {
+        config.saveDACState(channel, voltage);
+    }
+    _changed = true;
 }
 
 float HardwareHAL::getDAC(uint8_t channel) const {
@@ -74,6 +103,9 @@ float HardwareHAL::readADC(uint8_t channel) {
     // For production, a more precise calibration would be needed
     return (raw / 4095.0f) * 3.3f;
 }
+
+const DeviceState& HardwareHAL::getState() const { return state; }
+bool HardwareHAL::hasStateChanged() { if(_changed) { _changed = false; return true; } return false; }
 
 void HardwareHAL::writeGP8403(uint8_t channel, uint16_t value) {
     // GP8403 Protocol: [Addr] [Reg] [DataL] [DataH]
@@ -89,10 +121,78 @@ void HardwareHAL::writeGP8403(uint8_t channel, uint16_t value) {
 
 uint16_t HardwareHAL::voltageToDAC(float voltage) {
     // Internal conversion formula: uint16_t dacValue = (voltage / 10.0) * 4095;
-    // Note: GP8403 is 12-bit usually, but check datasheet for specific range.
-    // The requirement says (voltage / 10.0) * 4095.
     float val = (voltage / 10.0f) * 4095.0f;
     if (val > 4095) val = 4095;
     if (val < 0) val = 0;
     return (uint16_t)val;
+}
+
+void HardwareHAL::startRamp(uint8_t channel, float targetVoltage, uint32_t durationMs) {
+    if (channel < 1 || channel > 2) return;
+    int idx = channel - 1;
+    
+    // Stop any active program if a manual ramp is requested
+    prog.active = false;
+    
+    ramps[idx].active = true;
+    ramps[idx].startV = getDAC(channel);
+    ramps[idx].targetV = targetVoltage;
+    ramps[idx].startTime = millis();
+    ramps[idx].duration = durationMs;
+}
+
+void HardwareHAL::startStepProgram(uint8_t channel, float startV, float targetV, float step, uint32_t stepMs) {
+    if (channel < 1 || channel > 2) return;
+    
+    prog.active = true;
+    prog.channel = channel;
+    prog.currentV = startV;
+    prog.targetV = targetV;
+    prog.stepSize = step;
+    prog.stepDuration = stepMs;
+    prog.lastStepTime = millis();
+    
+    // Set initial voltage
+    setDAC(channel, startV);
+    Serial.printf("[HAL] AutoProgram Start: Ch%d @ %.1fV\n", channel, startV);
+}
+
+void HardwareHAL::loop() {
+    uint32_t now = millis();
+    
+    // 1. Handle Smooth Ramps
+    for (int i = 0; i < 2; i++) {
+        if (!ramps[i].active) continue;
+        
+        uint32_t elapsed = now - ramps[i].startTime;
+        if (elapsed >= ramps[i].duration) {
+            setDAC(i + 1, ramps[i].targetV);
+            ramps[i].active = false;
+            Serial.printf("[HAL] Ramp Ch%d Finished at %.1fV\n", i+1, ramps[i].targetV);
+        } else {
+            float progress = (float)elapsed / ramps[i].duration;
+            float currentV = ramps[i].startV + progress * (ramps[i].targetV - ramps[i].startV);
+            setDAC(i + 1, currentV);
+        }
+    }
+
+    // 2. Handle Stepwise Program
+    if (prog.active) {
+        if (now - prog.lastStepTime >= prog.stepDuration) {
+            prog.lastStepTime = now;
+            prog.currentV += prog.stepSize;
+            
+            if (prog.currentV > prog.targetV) {
+                // Program finished - reset to start voltage as per user request
+                Serial.printf("[HAL] AutoProgram Finished. Resetting to 4.0V\n");
+                setDAC(prog.channel, 4.0f); 
+                prog.active = false;
+                _changed = true;
+            } else {
+                Serial.printf("[HAL] AutoProgram Step: %.1fV\n", prog.currentV);
+                setDAC(prog.channel, prog.currentV);
+                _changed = true;
+            }
+        }
+    }
 }

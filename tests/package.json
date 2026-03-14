@@ -1,0 +1,15 @@
+{
+  "name": "sicharge-e2e-tests",
+  "version": "1.0.0",
+  "description": "Exhaustive E2E tests for SICHARGE D Monitor",
+  "scripts": {
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run --spec cypress/e2e/exhaustive_tests.cy.js",
+    "playwright:test": "npx playwright test playwright/exhaustive_tests.spec.js",
+    "playwright:report": "npx playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "cypress": "^13.6.0"
+  }
+}

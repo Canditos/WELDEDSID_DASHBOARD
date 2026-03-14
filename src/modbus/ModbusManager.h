@@ -13,6 +13,9 @@ private:
     HardwareHAL& hardware;
     ModbusIP mb;
     
+    bool lastRelayStates[8];
+    uint16_t lastDACStates[2];
+    
     static const uint16_t COIL_RELAY_START = 0;
     static const uint16_t HREG_DAC_START = 0;
 };

@@ -13,6 +13,7 @@ public:
     
     void loadHardwareState(DeviceState& state);
     void saveRelayState(uint8_t index, bool state);
+    void saveRelayMask(uint8_t mask);
     void saveDACState(uint8_t channel, float voltage);
 
 private:

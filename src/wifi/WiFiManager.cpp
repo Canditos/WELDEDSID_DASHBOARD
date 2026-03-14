@@ -52,27 +52,42 @@ void WiFiManager::startSTA() {
 
 void WiFiManager::startAP() {
     Serial.printf("Starting AP: %s\n", Config::DEFAULT_AP_SSID);
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(Config::DEFAULT_AP_SSID);
+    WiFi.mode(WIFI_AP_STA); // AP_STA to allow background scanning
+    bool success = WiFi.softAP(Config::DEFAULT_AP_SSID);
+    if (success) {
+        Serial.print("AP Started. IP: ");
+        Serial.println(WiFi.softAPIP());
+    } else {
+        Serial.println("AP Failed to start!");
+    }
     currentMode = WiFiModeState::AP_ONLY;
 }
 
 void WiFiManager::handleSTAFailure() {
     Serial.println("STA Connection Failed. Falling back to AP.");
     WiFi.mode(WIFI_AP_STA); // Keep STA scan possible while in AP mode
-    WiFi.softAP(Config::DEFAULT_AP_SSID);
+    bool success = WiFi.softAP(Config::DEFAULT_AP_SSID);
+    if (success) {
+        Serial.print("Fallback AP Started. IP: ");
+        Serial.println(WiFi.softAPIP());
+    }
     currentMode = WiFiModeState::STA_FAILED_AP_FALLBACK;
 }
 
 void WiFiManager::scanNetworks() {
     if (isScanning) return;
+    Serial.println("[WIFI] Starting Async Scan...");
     WiFi.scanNetworks(true); // Async scan
     isScanning = true;
 }
 
 String WiFiManager::getScanResultsJSON() {
     int n = WiFi.scanComplete();
-    if (n < 0) return "[]";
+    if (n == WIFI_SCAN_RUNNING) return "[]";
+    if (n == WIFI_SCAN_FAILED || n < 0) {
+        isScanning = false;
+        return "[]";
+    }
     
     DynamicJsonDocument doc(2048);
     JsonArray arr = doc.to<JsonArray>();

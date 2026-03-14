@@ -2,25 +2,38 @@
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 
-AppServer::AppServer(HardwareHAL& hal, WiFiManager& wifiMgr) 
-    : hardware(hal), wifi(wifiMgr), server(Config::HTTP_PORT), webSocket(Config::WS_PORT) {}
+AppServer::AppServer(HardwareHAL& hal, WiFiManager& wifiMgr, MQTTManager& mqttMgr) 
+    : hardware(hal), wifi(wifiMgr), mqtt(mqttMgr), server(Config::HTTP_PORT), webSocket(Config::WS_PORT) {}
 
 void AppServer::begin() {
+    Serial.println("[SERVER] Starting SPIFFS...");
     if (!SPIFFS.begin(true)) {
-        Serial.println("An Error has occurred while mounting SPIFFS");
+        Serial.println("[SERVER] ERROR: SPIFFS mount failed!");
+    } else {
+        Serial.println("[SERVER] SPIFFS mounted successfully.");
+        if (SPIFFS.exists("/index.html")) {
+            Serial.println("[SERVER] index.html found in SPIFFS.");
+        } else {
+            Serial.println("[SERVER] ERROR: index.html NOT found!");
+        }
     }
 
     setupRoutes();
     server.begin();
+    Serial.println("[SERVER] HTTP Server started on port 80.");
     
     webSocket.begin();
     webSocket.onEvent([this](uint8_t n, WStype_t t, uint8_t* p, size_t l) { 
         this->onWebSocketEvent(n, t, p, l); 
     });
+    Serial.println("[SERVER] WebSockets started on port 81.");
 }
 
 void AppServer::loop() {
     webSocket.loop();
+    if (hardware.hasStateChanged()) {
+        broadcastUpdate();
+    }
 }
 
 void AppServer::setupRoutes() {
@@ -56,7 +69,21 @@ void AppServer::setupRoutes() {
         request->send(200, "application/json", output);
     });
 
-    // API: WiFi Scan
+    // API: WiFi Status
+    server.on("/api/wifi/status", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        if (!authenticate(request)) return request->requestAuthentication();
+        DynamicJsonDocument doc(256);
+        doc["ssid"] = WiFi.SSID();
+        doc["status"] = (int)WiFi.status();
+        doc["ip"] = WiFi.localIP().toString();
+        doc["rssi"] = WiFi.RSSI();
+        
+        String output;
+        serializeJson(doc, output);
+        request->send(200, "application/json", output);
+    });
+
+    // API: WiFi Scan Results
     server.on("/api/wifi/scan", HTTP_GET, [this](AsyncWebServerRequest *request) {
         if (!authenticate(request)) return request->requestAuthentication();
         request->send(200, "application/json", wifi.getScanResultsJSON());
@@ -121,8 +148,9 @@ void AppServer::onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, s
                 for(int i=0; i<8; i++) relays.add(state.relays[i]);
                 doc["v1"] = state.dac1_v;
                 doc["v2"] = state.dac2_v;
-                doc["wifiMode"] = "STA"; // Placeholder logic for now
-                doc["mqtt"] = false;
+                doc["wifiMode"] = "STA"; 
+                doc["mqtt"] = mqtt.isConnected();
+                doc["modbus"] = true; // Always true if mb.task() is running as slave
                 
                 String output;
                 serializeJson(doc, output);
@@ -147,6 +175,14 @@ void AppServer::handleWebSocketMessage(uint8_t num, uint8_t* payload, size_t len
         int idx = doc["idx"];
         bool state = doc["state"];
         hardware.setRelay(idx, state);
+        broadcastUpdate(idx, state);
+    } else if (strcmp(cmd, "relay_all") == 0) {
+        bool state = doc["state"];
+        hardware.setRelayMask(state ? 0xFF : 0x00);
+        broadcastUpdate();
+    } else if (strcmp(cmd, "relay_mask") == 0) {
+        uint8_t mask = doc["mask"];
+        hardware.setRelayMask(mask);
         broadcastUpdate();
     } else if (strcmp(cmd, "dac") == 0) {
         int channel = doc["channel"];
@@ -157,17 +193,38 @@ void AppServer::handleWebSocketMessage(uint8_t num, uint8_t* payload, size_t len
         hardware.setDAC(1, doc["v1"]);
         hardware.setDAC(2, doc["v2"]);
         broadcastUpdate();
+    } else if (strcmp(cmd, "ramp") == 0) {
+        int channel = doc["channel"];
+        float target = doc["target"];
+        uint32_t duration = doc["duration"];
+        hardware.startRamp(channel, target, duration);
+    } else if (strcmp(cmd, "step_ramp") == 0) {
+        int channel = doc["channel"];
+        float start = doc["start"];
+        float target = doc["target"];
+        float step = doc["step"];
+        uint32_t stepMs = doc["duration"];
+        hardware.startStepProgram(channel, start, target, step, stepMs);
     }
 }
 
-void AppServer::broadcastUpdate() {
+void AppServer::broadcastUpdate(int singleIdx, int singleState) {
     DynamicJsonDocument doc(1024);
     const DeviceState& state = hardware.getState();
     doc["type"] = "update";
-    JsonArray relays = doc.createNestedArray("relays");
-    for(int i=0; i<8; i++) relays.add(state.relays[i]);
+    
+    if (singleIdx != -1) {
+        doc["idx"] = singleIdx;
+        doc["state"] = (bool)singleState;
+    } else {
+        JsonArray relays = doc.createNestedArray("relays");
+        for(int i=0; i<8; i++) relays.add(state.relays[i]);
+    }
+    
     doc["v1"] = state.dac1_v;
     doc["v2"] = state.dac2_v;
+    doc["mqtt"] = mqtt.isConnected();
+    doc["modbus"] = true;
     
     String output;
     serializeJson(doc, output);
