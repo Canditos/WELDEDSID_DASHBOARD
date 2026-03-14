@@ -22,6 +22,10 @@ The current dashboard intentionally follows a denser, more professional industri
 
 ## Dashboard Preview
 
+Animated dashboard preview:
+
+![Dashboard tour](docs/screenshots/dashboard-tour.gif)
+
 Main operator dashboard:
 
 ![Dashboard preview](docs/screenshots/dashboard-preview.png)
@@ -101,6 +105,38 @@ Default credentials may still exist on a fresh device image. Change them after f
 |-- platformio.ini       Firmware build config
 `-- package.json         Frontend test scripts
 ```
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser["Browser Dashboard\nHTML + CSS + JS"] --> HttpWs["HTTP API + WebSocket\nAppServer"]
+    HttpWs --> Wifi["WiFiManager"]
+    HttpWs --> Hw["HardwareHAL"]
+    HttpWs --> Mqtt["MQTTManager"]
+    Hw --> Nvs["ConfigManager / NVS"]
+    Wifi --> Nvs
+    Mqtt --> Nvs
+    Main["main.cpp"] --> Wifi
+    Main --> Hw
+    Main --> Mqtt
+    Main --> Modbus["ModbusManager"]
+    Main --> Ota["OTAManager"]
+    Hw --> Relay["8 Relay Outputs"]
+    Hw --> Dac["GP8403 DAC x2"]
+    Modbus --> Hw
+    Mqtt --> Hw
+```
+
+Boot sequence in the current firmware:
+1. Start serial diagnostics
+2. Load persistent configuration from NVS
+3. Restore relay and DAC state through `HardwareHAL`
+4. Start Wi-Fi management
+5. Start MQTT
+6. Start Modbus TCP
+7. Start HTTP and WebSocket dashboard services
+8. Start OTA
 
 ## Getting Started
 
@@ -191,6 +227,30 @@ npm run test:e2e:headed
 - Channel 2: Dispenser Temp, nominal range `4.0V - 9.0V`
 
 The dashboard also exposes a stepwise DAC ramp action for channel 2.
+
+## Pin Map
+
+The current firmware pin allocation is defined in [Constants.h](src/common/Constants.h).
+
+| Function | GPIO / Bus | Notes |
+| --- | --- | --- |
+| Relay 1 | GPIO23 | `DC1 FB` |
+| Relay 2 | GPIO32 | `DC2 FB` |
+| Relay 3 | GPIO33 | `DC3 FB` |
+| Relay 4 | GPIO19 | `DC4 FB` |
+| Relay 5 | GPIO18 | `DC1 24V` |
+| Relay 6 | GPIO5 | `DC2 24V` |
+| Relay 7 | GPIO17 | `MG1 FB` |
+| Relay 8 | GPIO16 | `MG2 FB` |
+| DAC SDA | GPIO21 | GP8403 I2C data |
+| DAC SCL | GPIO22 | GP8403 I2C clock |
+| DAC address | `0x58` | GP8403 I2C address |
+| ADC1 | GPIO34 | Analog input |
+| ADC2 | GPIO35 | Analog input |
+| HTTP | Port 80 | Dashboard and REST endpoints |
+| WebSocket | Port 81 | Real-time operator commands |
+| MQTT | Port 1883 | Default broker port |
+| Modbus TCP | Port 502 | Default Modbus service port |
 
 ## Configuration and Credentials
 
