@@ -9,6 +9,7 @@
 #include "../wifi/WiFiManager.h"
 #include "../mqtt/MQTTManager.h"
 #include "../modbus/ModbusManager.h"
+#include "../security/SecurityHelpers.h"
 
 class AppServer {
 public:
@@ -20,6 +21,13 @@ public:
 
 private:
     static const uint8_t MAX_WS_CLIENTS = 8;
+    struct PendingWsSession {
+        bool active;
+        String token;
+        UserRole role;
+        String username;
+    };
+
     ConfigManager& config;
     HardwareHAL& hardware;
     WiFiManager& wifi;
@@ -27,8 +35,10 @@ private:
     ModbusManager& modbus;
     AsyncWebServer server;
     WebSocketsServer webSocket;
-    String wsAuthToken;
     bool authorizedClients[MAX_WS_CLIENTS];
+    UserRole clientRoles[MAX_WS_CLIENTS];
+    String clientUsernames[MAX_WS_CLIENTS];
+    PendingWsSession pendingSessions[MAX_WS_CLIENTS];
     SecurityConfig securityConfig;
     
     void setupRoutes();
@@ -37,11 +47,18 @@ private:
     void sendStateToClient(uint8_t num);
     bool isClientAuthorized(uint8_t num) const;
     void setClientAuthorized(uint8_t num, bool authorized);
+    void setClientRole(uint8_t num, UserRole role, const String& username);
     String generateWsAuthToken() const;
+    int allocatePendingSession(const String& token, UserRole role, const String& username);
+    int findPendingSessionByToken(const char* token) const;
+    void clearPendingSession(int index);
     bool hasValidRelayIndex(int idx) const;
     bool hasValidDacChannel(int channel) const;
     void populateHealthJson(DynamicJsonDocument& doc) const;
+    void populateSecurityStatusJson(DynamicJsonDocument& doc) const;
+    void populateConfigExportJson(DynamicJsonDocument& doc) const;
     bool rejectUnauthorized(AsyncWebServerRequest *request) const;
-    
-    bool authenticate(AsyncWebServerRequest *request);
+    bool rejectForbidden(AsyncWebServerRequest *request) const;
+    UserRole getRequestRole(AsyncWebServerRequest *request, String* username = nullptr) const;
+    bool requireRole(AsyncWebServerRequest *request, UserRole requiredRole, UserRole* matchedRole = nullptr, String* username = nullptr) const;
 };

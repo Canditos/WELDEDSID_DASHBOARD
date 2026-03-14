@@ -7,6 +7,7 @@ let ws;
 let wsToken = "";
 let authHeader = "";
 let authUser = "";
+let currentUserRole = "viewer";
 let relayStates = new Array(8).fill(null);
 let dacValues = [null, null];
 let firstLoadProcessed = false;
@@ -19,6 +20,12 @@ const relayPendingTimers = {};
 const dacPendingTimers = {};
 let programRunningTimer = null;
 let networkPanelOpen = false;
+
+const ROLE_LEVELS = {
+    viewer: 0,
+    operator: 1,
+    admin: 2
+};
 
 function getWifiModeLabel(mode) {
     switch (Number(mode)) {
@@ -48,6 +55,19 @@ function escapeHtml(value) {
         .replaceAll("'", "&#39;");
 }
 
+function hasRole(role) {
+    return (ROLE_LEVELS[currentUserRole] ?? 0) >= (ROLE_LEVELS[role] ?? 0);
+}
+
+function enforceRole(role, deniedMessage) {
+    if (hasRole(role)) {
+        return true;
+    }
+
+    addLog(deniedMessage, "AUTH");
+    return false;
+}
+
 function setChipState(element, label, state) {
     if (!element) return;
     element.textContent = label;
@@ -69,6 +89,63 @@ function updateOpsSnapshot() {
     document.getElementById("ops-relay-value").innerText = `${activeRelays} / 8`;
     document.getElementById("ops-relay-meta").innerText = activeRelays > 0 ? "Relays currently energized" : "All relay outputs idle";
     document.getElementById("ops-dac-value").innerText = `${dac1} V / ${dac2} V`;
+}
+
+function setElementDisabled(id, disabled) {
+    const element = document.getElementById(id);
+    if (!element) return;
+    element.disabled = disabled;
+    element.classList.toggle("disabled", disabled);
+}
+
+function applyRolePermissions() {
+    const operatorLocked = !hasRole("operator");
+    const adminLocked = !hasRole("admin");
+
+    [
+        "reset-all-relays-btn",
+        "reset-group-1-btn",
+        "reset-group-2-btn",
+        "reset-group-3-btn",
+        "reset-dac-1-btn",
+        "reset-dac-2-btn",
+        "execute-stepwise-btn",
+        "range-dac1",
+        "range-dac2",
+        "num-dac1",
+        "num-dac2"
+    ].forEach((id) => setElementDisabled(id, operatorLocked));
+
+    for (let i = 0; i < RELAY_NAMES.length; i += 1) {
+        setElementDisabled(`btn-r${i}`, operatorLocked);
+    }
+
+    [
+        "scan-wifi-btn",
+        "save-connect-btn",
+        "save-security-btn",
+        "export-config-btn",
+        "import-config-btn",
+        "reset-network-config-btn",
+        "reset-all-config-btn",
+        "security-admin-user",
+        "security-admin-pass",
+        "security-operator-user",
+        "security-operator-pass",
+        "security-viewer-user",
+        "security-viewer-pass",
+        "security-operator-enabled",
+        "security-viewer-enabled",
+        "security-ota-pass",
+        "wifi-ssid",
+        "wifi-pass"
+    ].forEach((id) => setElementDisabled(id, adminLocked));
+
+    document.getElementById("security-status-text").innerText = hasRole("admin")
+        ? "Admin access active. User and config management unlocked."
+        : hasRole("operator")
+            ? "Operator access active. Control commands unlocked, configuration locked."
+            : "Viewer access active. Dashboard is in read-only mode.";
 }
 
 function applyLogFilter() {
@@ -156,6 +233,8 @@ async function handleLogin(event) {
     try {
         const data = await fetchJSON("/api/ws-auth");
         wsToken = data.token || "";
+        currentUserRole = data.role || "viewer";
+        authUser = data.username || username;
         if (!wsToken) {
             throw new Error("Missing token");
         }
@@ -163,8 +242,13 @@ async function handleLogin(event) {
         setVisible("login-overlay", false);
         setVisible("main-container", true, "block");
         setVisible("login-error", false);
+        applyRolePermissions();
 
-        await Promise.all([updateWifiStatus(), updateSystemHealth(), loadSecurityStatus()]);
+        await Promise.all([
+            updateWifiStatus(),
+            updateSystemHealth(),
+            hasRole("admin") ? loadSecurityStatus() : Promise.resolve()
+        ]);
         initWS();
 
         if (wifiPollTimer) clearInterval(wifiPollTimer);
@@ -175,6 +259,7 @@ async function handleLogin(event) {
         addLog(`User authorized: ${username}`, "AUTH");
     } catch (error) {
         setVisible("login-error", true);
+        currentUserRole = "viewer";
         addLog("Authentication failed", "ERR");
     }
 }
@@ -184,6 +269,7 @@ function logout() {
     authHeader = "";
     wsToken = "";
     authUser = "";
+    currentUserRole = "viewer";
     relayStates = new Array(8).fill(null);
     dacValues = [null, null];
     firstLoadProcessed = false;
@@ -192,6 +278,7 @@ function logout() {
     setVisible("login-overlay", true, "flex");
     document.getElementById("login-password").value = "";
     updateModeChip("ws-mode-chip", "WS: IDLE", "offline");
+    applyRolePermissions();
 }
 
 function initWS() {
@@ -222,8 +309,18 @@ function initWS() {
             ws.close();
             return;
         }
+        if (data.type === "auth" && data.ok) {
+            currentUserRole = data.role || currentUserRole;
+            authUser = data.username || authUser;
+            applyRolePermissions();
+            addLog(`Realtime session active for ${authUser} (${currentUserRole})`, "AUTH");
+            return;
+        }
         if (data.type === "init" || data.type === "update") {
             updateUI(data);
+        }
+        if (data.type === "error" && data.message === "forbidden") {
+            addLog("Current role cannot execute that command", "AUTH");
         }
     };
 }
@@ -274,6 +371,13 @@ function updateDacVisual(channel, voltage) {
 }
 
 function updateUI(data) {
+    if (data.role) {
+        currentUserRole = data.role;
+        applyRolePermissions();
+    }
+    if (data.username) {
+        authUser = data.username;
+    }
     if (data.mqtt !== undefined) {
         updateStatusBadge("mqtt", !!data.mqtt);
         updateModeChip("mqtt-mode-chip", data.mqtt ? "MQTT: LIVE" : "MQTT: STANDBY", data.mqtt ? "live" : "warn");
@@ -295,6 +399,10 @@ function updateUI(data) {
 }
 
 function sendWsCommand(payload) {
+    if (!enforceRole("operator", "This account does not have control permissions")) {
+        return;
+    }
+
     if (!ws || ws.readyState !== WebSocket.OPEN) {
         addLog("WebSocket not connected", "ERR");
         updateModeChip("ws-mode-chip", "WS: OFFLINE", "offline");
@@ -446,6 +554,7 @@ function renderWifiList(networks) {
 }
 
 async function startScan() {
+    if (!enforceRole("admin", "Only admin users can scan or change network settings")) return;
     document.getElementById("wifi-list").innerHTML = '<div class="empty-state">Scanning...</div>';
     addLog("Scanning for Wi-Fi networks...", "INFO");
     await fetchJSON("/api/wifi/startScan", { method: "POST" });
@@ -473,6 +582,7 @@ async function startScan() {
 }
 
 async function connectWifi() {
+    if (!enforceRole("admin", "Only admin users can change Wi-Fi settings")) return;
     const ssid = document.getElementById("wifi-ssid").value.trim();
     const pass = document.getElementById("wifi-pass").value;
     if (!ssid) {
@@ -501,40 +611,163 @@ async function connectWifi() {
 async function loadSecurityStatus() {
     try {
         const data = await fetchJSON("/api/security/status");
-        document.getElementById("security-admin-user").value = data.adminUser || authUser;
+        const users = Array.isArray(data.users) ? data.users : [];
+        const admin = users.find((user) => user.role === "admin") || {};
+        const operator = users.find((user) => user.role === "operator") || {};
+        const viewer = users.find((user) => user.role === "viewer") || {};
+
+        document.getElementById("security-admin-user").value = admin.username || authUser;
+        document.getElementById("security-operator-user").value = operator.username || "";
+        document.getElementById("security-viewer-user").value = viewer.username || "";
+        document.getElementById("security-admin-pass").value = "";
+        document.getElementById("security-operator-pass").value = "";
+        document.getElementById("security-viewer-pass").value = "";
+        document.getElementById("security-admin-pass").placeholder = "Leave blank to keep current admin password";
+        document.getElementById("security-operator-pass").placeholder = "Leave blank to keep current operator password";
+        document.getElementById("security-viewer-pass").placeholder = "Leave blank to keep current viewer password";
+        document.getElementById("security-operator-enabled").checked = operator.enabled !== false;
+        document.getElementById("security-viewer-enabled").checked = viewer.enabled !== false;
         document.getElementById("security-ota-pass").placeholder = data.hasOtaPassword ? "OTA password configured" : "OTA password";
-        document.getElementById("security-status-text").innerText =
-            data.usingDefaultPassword ? "Default admin password still in use." : "Custom credentials active.";
+
+        const usingDefaults = users.filter((user) => user.usingDefault).map((user) => user.role.toUpperCase());
+        if (usingDefaults.length > 0) {
+            document.getElementById("security-status-text").innerText = `Default credentials still active for: ${usingDefaults.join(", ")}.`;
+        } else {
+            document.getElementById("security-status-text").innerText = "Custom credentials active for all enabled roles.";
+        }
     } catch (error) {
         document.getElementById("security-status-text").innerText = "Unable to load security settings.";
     }
 }
 
-async function saveSecuritySettings() {
-    const adminUser = document.getElementById("security-admin-user").value.trim();
-    const adminPass = document.getElementById("security-admin-pass").value;
-    const otaPassword = document.getElementById("security-ota-pass").value;
+async function exportConfig() {
+    if (!enforceRole("admin", "Only admin users can export configuration")) return;
+    try {
+        const data = await fetchJSON("/api/config/export");
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `sicharge_backup_${new Date().toISOString().replaceAll(":", "-")}.json`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        addLog("Configuration backup exported", "AUTH");
+    } catch (error) {
+        addLog("Failed to export configuration", "ERR");
+    }
+}
 
-    if (!adminUser || adminPass.length < 8) {
-        addLog("Admin password must have at least 8 characters", "ERR");
+function triggerImportConfig() {
+    if (!enforceRole("admin", "Only admin users can import configuration")) return;
+    document.getElementById("import-config-file").click();
+}
+
+async function handleImportConfig(event) {
+    const [file] = event.target.files || [];
+    if (!file) return;
+
+    try {
+        const text = await file.text();
+        await fetchJSON("/api/config/import", {
+            method: "POST",
+            body: text
+        });
+        addLog("Configuration import applied", "AUTH");
+        await Promise.all([loadSecurityStatus(), updateWifiStatus(), updateSystemHealth()]);
+    } catch (error) {
+        addLog("Failed to import configuration", "ERR");
+    } finally {
+        event.target.value = "";
+    }
+}
+
+async function resetConfiguration(scope) {
+    if (!enforceRole("admin", "Only admin users can reset configuration")) return;
+
+    try {
+        await fetchJSON("/api/config/reset", {
+            method: "POST",
+            body: JSON.stringify({ scope })
+        });
+
+        addLog(`Configuration reset executed for scope: ${scope}`, "AUTH");
+        if (scope === "all") {
+            addLog("Security was reset to defaults. Please sign in again.", "WARN");
+            logout();
+            return;
+        }
+        await Promise.all([loadSecurityStatus(), updateWifiStatus(), updateSystemHealth()]);
+    } catch (error) {
+        addLog(`Failed to reset configuration scope: ${scope}`, "ERR");
+    }
+}
+
+async function saveSecuritySettings() {
+    if (!enforceRole("admin", "Only admin users can update users and configuration")) return;
+
+    const otaPassword = document.getElementById("security-ota-pass").value;
+    const users = [
+        {
+            role: "admin",
+            username: document.getElementById("security-admin-user").value.trim(),
+            password: document.getElementById("security-admin-pass").value,
+            enabled: true
+        },
+        {
+            role: "operator",
+            username: document.getElementById("security-operator-user").value.trim(),
+            password: document.getElementById("security-operator-pass").value,
+            enabled: document.getElementById("security-operator-enabled").checked
+        },
+        {
+            role: "viewer",
+            username: document.getElementById("security-viewer-user").value.trim(),
+            password: document.getElementById("security-viewer-pass").value,
+            enabled: document.getElementById("security-viewer-enabled").checked
+        }
+    ];
+
+    if (!users[0].username) {
+        addLog("Admin username cannot be empty", "ERR");
+        return;
+    }
+
+    const invalidRole = users.find((user) => user.enabled && user.password && user.password.length < 8);
+    if (invalidRole) {
+        addLog(`${invalidRole.role.toUpperCase()} password must have at least 8 characters`, "ERR");
+        return;
+    }
+
+    if (users[0].username !== authUser && !users[0].password) {
+        addLog("Changing the admin username requires a new admin password in the same save", "ERR");
         return;
     }
 
     try {
-        await fetchJSON("/api/security/passwords", {
+        await fetchJSON("/api/security/users", {
             method: "POST",
-            body: JSON.stringify({ adminUser, adminPass, otaPassword })
+            body: JSON.stringify({ users, otaPassword })
         });
 
-        authHeader = `Basic ${btoa(`${adminUser}:${adminPass}`)}`;
-        authUser = adminUser;
+        const nextAdminPassword = users[0].password || document.getElementById("login-password").value || "";
+        if (users[0].password) {
+            authHeader = `Basic ${btoa(`${users[0].username}:${users[0].password}`)}`;
+        } else if (users[0].username !== authUser && nextAdminPassword) {
+            authHeader = `Basic ${btoa(`${users[0].username}:${nextAdminPassword}`)}`;
+        }
+        authUser = users[0].username;
         document.getElementById("security-admin-pass").value = "";
+        document.getElementById("security-operator-pass").value = "";
+        document.getElementById("security-viewer-pass").value = "";
 
         const data = await fetchJSON("/api/ws-auth");
         wsToken = data.token || "";
+        currentUserRole = data.role || "admin";
         if (ws) ws.close();
         initWS();
-        await loadSecurityStatus();
+        if (hasRole("admin")) {
+            await loadSecurityStatus();
+        }
         await updateSystemHealth();
         addLog("Security settings updated", "AUTH");
     } catch (error) {
@@ -599,6 +832,11 @@ document.getElementById("logout-btn").addEventListener("click", logout);
 document.getElementById("scan-wifi-btn").addEventListener("click", startScan);
 document.getElementById("save-connect-btn").addEventListener("click", connectWifi);
 document.getElementById("save-security-btn").addEventListener("click", saveSecuritySettings);
+document.getElementById("export-config-btn").addEventListener("click", exportConfig);
+document.getElementById("import-config-btn").addEventListener("click", triggerImportConfig);
+document.getElementById("import-config-file").addEventListener("change", handleImportConfig);
+document.getElementById("reset-network-config-btn").addEventListener("click", () => resetConfiguration("network"));
+document.getElementById("reset-all-config-btn").addEventListener("click", () => resetConfiguration("all"));
 document.getElementById("clear-logs-btn").addEventListener("click", clearLogs);
 document.getElementById("download-logs-btn").addEventListener("click", downloadLogs);
 document.getElementById("network-panel-toggle").addEventListener("click", toggleNetworkPanel);
@@ -630,3 +868,4 @@ setDacPending(1, false);
 setDacPending(2, false);
 setProgramRunning(false);
 updateOpsSnapshot();
+applyRolePermissions();

@@ -1,5 +1,5 @@
 #pragma once
-#include <Arduino.h>
+#include <stdint.h>
 
 namespace Config {
     // WiFi Configuration
@@ -33,6 +33,11 @@ namespace Config {
     const uint16_t WS_PORT = 81;
     const char* const ADMIN_USER = "admin";
     const char* const ADMIN_PASS = "admin123";
+    const char* const OPERATOR_USER = "operator";
+    const char* const OPERATOR_PASS = "operator123";
+    const char* const VIEWER_USER = "viewer";
+    const char* const VIEWER_PASS = "viewer123";
+    const uint8_t SECURITY_USER_COUNT = 3;
 
     // MQTT Configuration
     const uint16_t MQTT_DEFAULT_PORT = 1883;

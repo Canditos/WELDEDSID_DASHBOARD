@@ -47,7 +47,8 @@ Main operator dashboard:
 - Industrial-style control layout
 - Real-time relay status and DAC readout updates
 - Wi-Fi scan and provisioning flow
-- Security settings panel for credential updates
+- Security settings panel with `admin`, `operator` and `viewer` roles
+- Configuration backup, import and reset flows for admin users
 - Event log panel with clear/export actions
 - Responsive behavior for desktop and smaller screens
 
@@ -61,7 +62,8 @@ Main operator dashboard:
 This copy includes hardening work compared with the original project:
 - WebSocket control flow requires authentication before accepting commands
 - Wi-Fi credential save handling is safer for fragmented request bodies
-- Admin credentials and OTA password are stored in persistent configuration
+- Multi-role credentials and OTA password are stored in persistent configuration
+- Role-based permissions separate read-only, operator and admin actions
 - Frontend no longer relies on hardcoded JavaScript-only protection
 
 Default credentials may still exist on a fresh device image. Change them after first boot.
@@ -266,6 +268,8 @@ If the device is still using default credentials, update them as part of commiss
 - [Cypress testing guide](docs/cypress-testing.md)
 - [Wiring notes](docs/wiring.md)
 - [Protocol notes](docs/protocols.md)
+
+The wiring notes now also include a visual GPIO map for the current ESP32 pin allocation.
 
 ## Current Status
 

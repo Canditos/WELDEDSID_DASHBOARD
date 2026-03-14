@@ -22,6 +22,10 @@
                     <button type="submit" class="login-btn">Authorize</button>
                 </form>
                 <div id="login-error" class="error-text">Invalid credentials</div>
+                <div class="login-credits">
+                    <div>&copy; 2026 SIEMENS AG | SICHARGE D Monitor v1.6</div>
+                    <div>Connected via WebSocket | @Canditos</div>
+                </div>
             </div>
         </div>
     </div>
@@ -103,12 +107,32 @@
                                 <button class="primary-btn" id="save-connect-btn" data-cy="save-connect-btn">SAVE &amp; CONNECT</button>
                             </div>
                             <div class="security-divider"></div>
-                            <div class="field-stack">
-                                <input type="text" id="security-admin-user" class="login-input" placeholder="Admin username">
-                                <input type="password" id="security-admin-pass" class="login-input" placeholder="New admin password (min 8 chars)">
-                                <input type="password" id="security-ota-pass" class="login-input" placeholder="OTA password">
-                                <button class="primary-btn secondary-fill" id="save-security-btn">UPDATE CREDENTIALS</button>
+                            <div class="security-grid">
+                                <div class="security-role-card">
+                                    <div class="security-role-title">ADMIN</div>
+                                    <input type="text" id="security-admin-user" class="login-input" placeholder="Admin username">
+                                    <input type="password" id="security-admin-pass" class="login-input" placeholder="Admin password (min 8 chars)">
+                                </div>
+                                <div class="security-role-card">
+                                    <label class="security-role-toggle"><input type="checkbox" id="security-operator-enabled" checked> OPERATOR</label>
+                                    <input type="text" id="security-operator-user" class="login-input" placeholder="Operator username">
+                                    <input type="password" id="security-operator-pass" class="login-input" placeholder="Operator password (min 8 chars)">
+                                </div>
+                                <div class="security-role-card">
+                                    <label class="security-role-toggle"><input type="checkbox" id="security-viewer-enabled" checked> VIEWER</label>
+                                    <input type="text" id="security-viewer-user" class="login-input" placeholder="Viewer username">
+                                    <input type="password" id="security-viewer-pass" class="login-input" placeholder="Viewer password (min 8 chars)">
+                                </div>
                             </div>
+                            <input type="password" id="security-ota-pass" class="login-input" placeholder="OTA password">
+                            <div class="config-actions-grid">
+                                <button class="primary-btn secondary-fill" id="save-security-btn">SAVE USERS</button>
+                                <button class="small-btn accent-btn" id="export-config-btn">EXPORT CONFIG</button>
+                                <button class="small-btn accent-btn" id="import-config-btn">IMPORT CONFIG</button>
+                                <button class="small-btn danger-btn" id="reset-network-config-btn">RESET NETWORK</button>
+                                <button class="small-btn danger-btn" id="reset-all-config-btn">RESET ALL CONFIG</button>
+                            </div>
+                            <input type="file" id="import-config-file" accept="application/json" hidden>
                             <p class="helper-text" id="security-status-text">Credentials loaded.</p>
                         </div>
                     </article>
@@ -237,10 +261,6 @@
             </section>
         </main>
 
-        <footer class="footer">
-            <div>&copy; 2026 SIEMENS AG | SICHARGE D Monitor v1.6</div>
-            <div>Connected via WebSocket | @Canditos</div>
-        </footer>
     </div>
 
     <script src="/app.js"></script>

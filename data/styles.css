@@ -114,11 +114,56 @@ body {
     line-height: 1.5;
 }
 
+.login-credits {
+    margin-top: 1.4rem;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
+
 .login-form,
 .field-stack {
     display: flex;
     flex-direction: column;
     gap: 0.7rem;
+}
+
+.security-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.security-role-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.8rem;
+    border: 1px solid rgba(76, 103, 142, 0.28);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.security-role-title,
+.security-role-toggle {
+    color: var(--cyan);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.security-role-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.config-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    margin-top: 0.8rem;
 }
 
 .login-input,
@@ -240,6 +285,13 @@ body {
 .login-btn:hover,
 .collapse-toggle:hover {
     opacity: 0.9;
+}
+
+.disabled,
+:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 #main-container {
@@ -410,10 +462,29 @@ body {
     display: grid;
     grid-template-columns: 33% 1fr;
     gap: 18px;
+    align-items: stretch;
+}
+
+.sidebar,
+.content {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
 }
 
 .panel-section {
     margin-bottom: 18px;
+}
+
+.content .panel-section:last-child,
+.sidebar .panel-section:last-child {
+    margin-bottom: 0;
+}
+
+.sidebar .panel-section:last-child {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .section-heading {
@@ -429,6 +500,10 @@ body {
     font-weight: 800;
     letter-spacing: 0.15em;
     text-transform: uppercase;
+}
+
+.section-heading-with-actions {
+    padding-right: 16px;
 }
 
 .section-actions {
@@ -543,6 +618,9 @@ body {
 }
 
 .log-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     padding: 10px 0 8px;
     background:
         linear-gradient(180deg, rgba(20, 27, 37, 0.96) 0%, rgba(15, 20, 28, 0.98) 100%);
@@ -576,8 +654,9 @@ body {
 }
 
 .log-container {
-    min-height: 620px;
-    max-height: 620px;
+    flex: 1;
+    min-height: 0;
+    max-height: none;
     overflow: auto;
     padding: 0 12px;
 }
@@ -662,9 +741,9 @@ body {
 
 .relay-group-header,
 .dac-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 122px;
+    align-items: start;
     gap: 1rem;
     padding-bottom: 8px;
     margin-bottom: 10px;
@@ -677,6 +756,11 @@ body {
     font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
+}
+
+.relay-group-header .small-btn {
+    width: 122px;
+    justify-self: end;
 }
 
 .relay-grid {
@@ -709,8 +793,8 @@ body {
 }
 
 .dac-card {
-    min-height: 300px;
-    padding: 18px 20px 18px;
+    min-height: 256px;
+    padding: 16px 18px 16px;
     background:
         radial-gradient(circle at top center, rgba(0, 184, 198, 0.08), transparent 55%),
         linear-gradient(180deg, rgba(19, 27, 37, 0.95) 0%, rgba(14, 21, 31, 0.98) 100%);
@@ -723,16 +807,16 @@ body {
 }
 
 .dac-val-display {
-    margin: 28px 0 26px;
+    margin: 18px 0 18px;
     text-align: center;
     color: var(--cyan);
-    font-size: 4rem;
+    font-size: 3.2rem;
     font-weight: 900;
     text-shadow: 0 0 22px rgba(0, 184, 198, 0.22);
 }
 
 .dac-footnote {
-    margin: -10px 0 18px;
+    margin: -4px 0 14px;
     color: var(--muted);
     font-size: 0.78rem;
     text-align: center;
@@ -743,13 +827,13 @@ body {
     grid-template-columns: 1fr 82px;
     gap: 16px;
     align-items: center;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
 }
 
 .dac-preset-row {
     display: flex;
     gap: 0.5rem;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
     justify-content: center;
     flex-wrap: wrap;
 }
@@ -760,7 +844,7 @@ input[type="range"] {
 }
 
 .footer {
-    margin-top: 10px;
+    margin-top: 2px;
     color: var(--text);
     font-size: 0.86rem;
     line-height: 1.45;
@@ -801,6 +885,10 @@ input[type="range"] {
 @media (max-width: 1200px) {
     .ops-strip,
     .dashboard-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .security-grid {
         grid-template-columns: 1fr;
     }
 
@@ -853,5 +941,9 @@ input[type="range"] {
 
     .section-actions {
         align-items: flex-start;
+    }
+
+    .config-actions-grid {
+        grid-template-columns: 1fr;
     }
 }

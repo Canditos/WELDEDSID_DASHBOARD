@@ -157,7 +157,7 @@ The shared command `cy.mountDashboard()` currently intercepts:
 - `GET /api/security/status`
 - `POST /api/wifi/startScan`
 - `GET /api/wifi/scan`
-- `POST /api/security/passwords`
+- `POST /api/security/users`
 - `POST /api/wifi/save`
 
 ### Mocked WebSocket
@@ -300,12 +300,13 @@ Use this file as base when testing:
 
 Focus:
 - loading security state
-- saving credentials
+- saving multi-role users and OTA configuration
 - client-side validation
 - clear/export log flows
 
 Use this file as base when testing:
 - password rules
+- role/permission changes
 - auth UX
 - new log features such as filters or categories
 

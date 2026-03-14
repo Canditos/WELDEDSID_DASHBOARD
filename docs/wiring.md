@@ -2,6 +2,26 @@
 
 This document summarizes the current pin allocation exposed by the firmware.
 
+## Visual GPIO Map
+
+```mermaid
+flowchart TB
+    ESP["ESP32 DevKit"]
+    ESP --> R1["GPIO23 -> R1 / DC1 FB"]
+    ESP --> R2["GPIO32 -> R2 / DC2 FB"]
+    ESP --> R3["GPIO33 -> R3 / DC3 FB"]
+    ESP --> R4["GPIO19 -> R4 / DC4 FB"]
+    ESP --> R5["GPIO18 -> R5 / DC1 24V"]
+    ESP --> R6["GPIO5 -> R6 / DC2 24V"]
+    ESP --> R7["GPIO17 -> R7 / MG1 FB"]
+    ESP --> R8["GPIO16 -> R8 / MG2 FB"]
+    ESP --> I2C["I2C GP8403"]
+    I2C --> SDA["GPIO21 -> SDA"]
+    I2C --> SCL["GPIO22 -> SCL"]
+    ESP --> ADC1["GPIO34 -> ADC1"]
+    ESP --> ADC2["GPIO35 -> ADC2"]
+```
+
 ## Relay Outputs
 
 | Relay | Label | GPIO |
