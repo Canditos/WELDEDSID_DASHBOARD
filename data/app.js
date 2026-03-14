@@ -13,7 +13,11 @@ let firstLoadProcessed = false;
 let wifiPollTimer = null;
 let reconnectTimer = null;
 let scanTimer = null;
+let logFilter = "ALL";
 const dacSendTimers = {};
+const relayPendingTimers = {};
+const dacPendingTimers = {};
+let programRunningTimer = null;
 let networkPanelOpen = false;
 
 function getWifiModeLabel(mode) {
@@ -44,19 +48,54 @@ function escapeHtml(value) {
         .replaceAll("'", "&#39;");
 }
 
+function setChipState(element, label, state) {
+    if (!element) return;
+    element.textContent = label;
+    element.classList.remove("live", "warn", "offline");
+    if (state) {
+        element.classList.add(state);
+    }
+}
+
+function updateModeChip(id, label, state) {
+    setChipState(document.getElementById(id), label, state);
+}
+
+function updateOpsSnapshot() {
+    const activeRelays = relayStates.filter((state) => state === true).length;
+    const dac1 = dacValues[0] ?? "2.0";
+    const dac2 = dacValues[1] ?? "4.0";
+
+    document.getElementById("ops-relay-value").innerText = `${activeRelays} / 8`;
+    document.getElementById("ops-relay-meta").innerText = activeRelays > 0 ? "Relays currently energized" : "All relay outputs idle";
+    document.getElementById("ops-dac-value").innerText = `${dac1} V / ${dac2} V`;
+}
+
+function applyLogFilter() {
+    const entries = document.querySelectorAll(".log-entry");
+    entries.forEach((entry) => {
+        const entryType = entry.dataset.type || "";
+        const visible = logFilter === "ALL" || entryType === logFilter;
+        entry.classList.toggle("hidden", !visible);
+    });
+}
+
 function addLog(msg, type = "SYS") {
     const container = document.getElementById("log-container");
     if (!container) return;
 
     const now = new Date();
     const time = now.toLocaleTimeString("en-GB");
+    const normalizedType = String(type).toUpperCase();
     const entry = document.createElement("div");
     entry.className = "log-entry";
-    entry.innerHTML = `<span class="log-time">${time}</span><span class="log-type">${escapeHtml(type)}</span><span class="log-msg">${escapeHtml(msg)}</span>`;
+    entry.dataset.type = normalizedType;
+    entry.innerHTML = `<span class="log-time">${time}</span><span class="log-type">${escapeHtml(normalizedType)}</span><span class="log-msg">${escapeHtml(msg)}</span>`;
     container.prepend(entry);
     while (container.children.length > 200) {
         container.removeChild(container.lastChild);
     }
+    applyLogFilter();
 }
 
 async function fetchJSON(path, options = {}) {
@@ -78,6 +117,31 @@ async function fetchJSON(path, options = {}) {
     }
 
     return response.json();
+}
+
+function setRelayPending(index, pending) {
+    const button = document.getElementById(`btn-r${index}`);
+    if (!button) return;
+    button.classList.toggle("pending", pending);
+}
+
+function setDacPending(channel, pending) {
+    const chip = document.getElementById(`dac-chip-${channel}`);
+    if (!chip) return;
+
+    if (pending) {
+        setChipState(chip, "UPDATING", "warn");
+    } else {
+        setChipState(chip, "READY", "live");
+    }
+}
+
+function setProgramRunning(running) {
+    const button = document.getElementById("execute-stepwise-btn");
+    if (!button) return;
+    button.classList.toggle("running", running);
+    button.innerText = running ? "DISPENSER TEMP STEP RUNNING" : "DISPENSER TEMP STEP (4V-9V)";
+    setChipState(document.getElementById("dac-chip-2"), running ? "STEP ACTIVE" : "READY", running ? "warn" : "live");
 }
 
 async function handleLogin(event) {
@@ -126,18 +190,26 @@ function logout() {
     setVisible("offline-overlay", false);
     setVisible("login-overlay", true, "flex");
     document.getElementById("login-password").value = "";
+    updateModeChip("ws-mode-chip", "WS: IDLE", "offline");
 }
 
 function initWS() {
     if (!wsToken) return;
 
+    updateModeChip("ws-mode-chip", "WS: CONNECTING", "warn");
     ws = new WebSocket(`ws://${location.hostname}:81/`);
     ws.onopen = () => {
         addLog("Real-time connection open", "NET");
+        updateModeChip("ws-mode-chip", "WS: LIVE", "live");
+        document.getElementById("ops-command-value").innerText = "Linked";
+        document.getElementById("ops-command-meta").innerText = "WebSocket session established";
         ws.send(JSON.stringify({ cmd: "auth", token: wsToken }));
     };
     ws.onclose = () => {
         addLog("Connection lost. Retrying...", "ERR");
+        updateModeChip("ws-mode-chip", "WS: RETRYING", "warn");
+        document.getElementById("ops-command-value").innerText = "Retrying";
+        document.getElementById("ops-command-meta").innerText = "Command bus reconnect in progress";
         if (reconnectTimer) clearTimeout(reconnectTimer);
         reconnectTimer = setTimeout(initWS, 2000);
     };
@@ -145,6 +217,7 @@ function initWS() {
         const data = JSON.parse(event.data);
         if (data.type === "auth" && !data.ok) {
             addLog("WebSocket authentication failed", "ERR");
+            updateModeChip("ws-mode-chip", "WS: AUTH FAIL", "offline");
             ws.close();
             return;
         }
@@ -167,9 +240,15 @@ function updateRelayButton(index, nextState) {
     const button = document.getElementById(`btn-r${index}`);
     if (!button) return;
     button.classList.toggle("active", !!nextState);
+    setRelayPending(index, false);
+    if (relayPendingTimers[index]) {
+        clearTimeout(relayPendingTimers[index]);
+        relayPendingTimers[index] = null;
+    }
     if (firstLoadProcessed && oldState !== null && oldState !== nextState) {
         addLog(`${RELAY_NAMES[index]} is now ${nextState ? "ON" : "OFF"}`, "RELAY");
     }
+    updateOpsSnapshot();
 }
 
 function updateDacVisual(channel, voltage) {
@@ -181,15 +260,27 @@ function updateDacVisual(channel, voltage) {
     document.getElementById(`range-dac${channel}`).value = value;
     document.getElementById(`num-dac${channel}`).value = value;
     dacValues[index] = value;
+    setDacPending(channel, false);
+    if (dacPendingTimers[channel]) {
+        clearTimeout(dacPendingTimers[channel]);
+        dacPendingTimers[channel] = null;
+    }
 
     if (firstLoadProcessed && oldValue !== null && oldValue !== value) {
         addLog(`${channel === 1 ? "TF VOLTAGE" : "DISPENSER TEMP"} set to ${value}V`, "DAC");
     }
+    updateOpsSnapshot();
 }
 
 function updateUI(data) {
-    if (data.mqtt !== undefined) updateStatusBadge("mqtt", !!data.mqtt);
-    if (data.modbus !== undefined) updateStatusBadge("modbus", !!data.modbus);
+    if (data.mqtt !== undefined) {
+        updateStatusBadge("mqtt", !!data.mqtt);
+        updateModeChip("mqtt-mode-chip", data.mqtt ? "MQTT: LIVE" : "MQTT: STANDBY", data.mqtt ? "live" : "warn");
+    }
+    if (data.modbus !== undefined) {
+        updateStatusBadge("modbus", !!data.modbus);
+        updateModeChip("modbus-mode-chip", data.modbus ? "MODBUS: READY" : "MODBUS: CHECK", data.modbus ? "live" : "warn");
+    }
 
     if (Array.isArray(data.relays)) {
         data.relays.forEach((state, index) => updateRelayButton(index, state));
@@ -205,22 +296,36 @@ function updateUI(data) {
 function sendWsCommand(payload) {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
         addLog("WebSocket not connected", "ERR");
+        updateModeChip("ws-mode-chip", "WS: OFFLINE", "offline");
         return;
     }
+
+    document.getElementById("ops-command-value").innerText = "Dispatching";
+    document.getElementById("ops-command-meta").innerText = `Last command: ${payload.cmd.toUpperCase()}`;
     ws.send(JSON.stringify(payload));
 }
 
 function toggleRelay(index) {
+    setRelayPending(index, true);
+    relayPendingTimers[index] = setTimeout(() => setRelayPending(index, false), 1600);
     sendWsCommand({ cmd: "relay", idx: index, state: !relayStates[index] });
 }
 
 function resetRelayGroup(indices) {
     addLog("Resetting relay group", "INFO");
-    indices.forEach((idx) => sendWsCommand({ cmd: "relay", idx, state: false }));
+    indices.forEach((idx) => {
+        setRelayPending(idx, true);
+        relayPendingTimers[idx] = setTimeout(() => setRelayPending(idx, false), 1600);
+        sendWsCommand({ cmd: "relay", idx, state: false });
+    });
 }
 
 function resetAllRelays() {
     addLog("Global Reset initiated", "WARN");
+    for (let idx = 0; idx < RELAY_NAMES.length; idx += 1) {
+        setRelayPending(idx, true);
+        relayPendingTimers[idx] = setTimeout(() => setRelayPending(idx, false), 1600);
+    }
     sendWsCommand({ cmd: "relay_mask", mask: 0 });
 }
 
@@ -232,8 +337,11 @@ function syncDAC(channel, value, source) {
 
     nextValue = Math.min(Math.max(nextValue, min), max);
     updateDacVisual(channel, nextValue);
+    setDacPending(channel, true);
 
     clearTimeout(dacSendTimers[channel]);
+    clearTimeout(dacPendingTimers[channel]);
+    dacPendingTimers[channel] = setTimeout(() => setDacPending(channel, false), 1800);
     const delay = source === "range" ? 120 : 0;
     dacSendTimers[channel] = setTimeout(() => {
         sendWsCommand({ cmd: "dac", channel, voltage: nextValue });
@@ -245,7 +353,12 @@ function resetDAC(channel) {
 }
 
 function startAutoProgram(channel) {
-    addLog(`Executing stepwise program on Ch${channel}`, "INFO");
+    addLog("Executing Dispenser Temp STEP", "INFO");
+    clearTimeout(programRunningTimer);
+    setProgramRunning(true);
+    document.getElementById("ops-command-value").innerText = "Program Active";
+    document.getElementById("ops-command-meta").innerText = "Dispenser Temp step profile running";
+    programRunningTimer = setTimeout(() => setProgramRunning(false), 5500);
     sendWsCommand({
         cmd: "step_ramp",
         channel,
@@ -267,6 +380,8 @@ async function updateWifiStatus() {
 
         document.getElementById("display-ip").innerText = `Connected IP: ${ipText}`;
         document.getElementById("wifi-status").innerText = `Status: ${statusText}`;
+        document.getElementById("ops-network-value").innerText = modeLabel;
+        document.getElementById("ops-network-meta").innerText = data.ssid ? `${data.ssid} | ${ipText}` : `Controller IP ${ipText}`;
         updateStatusBadge("wifi", data.status === 3);
 
         if (data.status === 3 && document.getElementById("offline-overlay").style.display === "flex") {
@@ -275,6 +390,8 @@ async function updateWifiStatus() {
     } catch (error) {
         updateStatusBadge("wifi", false);
         document.getElementById("wifi-status").innerText = "Status: Unable to load Wi-Fi status";
+        document.getElementById("ops-network-value").innerText = "Unavailable";
+        document.getElementById("ops-network-meta").innerText = "No network status response";
     }
 }
 
@@ -284,10 +401,20 @@ async function updateSystemHealth() {
         updateStatusBadge("wifi", !!data.wifiConnected);
         updateStatusBadge("mqtt", !!data.mqttConnected);
         updateStatusBadge("modbus", !!data.modbusHealthy);
+
+        updateModeChip("wifi-mode-chip", `WIFI MODE: ${getWifiModeLabel(data.wifiMode).toUpperCase()}`, data.wifiConnected ? "live" : "warn");
+        updateModeChip("mqtt-mode-chip", data.mqttConnected ? "MQTT: LIVE" : "MQTT: STANDBY", data.mqttConnected ? "live" : "warn");
+        updateModeChip("modbus-mode-chip", data.modbusHealthy ? "MODBUS: READY" : "MODBUS: CHECK", data.modbusHealthy ? "live" : "warn");
+        if (!document.getElementById("ops-network-meta").innerText || document.getElementById("ops-network-meta").innerText === "No network status response") {
+            document.getElementById("ops-network-meta").innerText = `Controller IP ${data.wifiIp || "---.---.---.---"}`;
+        }
     } catch (error) {
         updateStatusBadge("wifi", false);
         updateStatusBadge("mqtt", false);
         updateStatusBadge("modbus", false);
+        updateModeChip("wifi-mode-chip", "WIFI MODE: UNKNOWN", "offline");
+        updateModeChip("mqtt-mode-chip", "MQTT: UNKNOWN", "offline");
+        updateModeChip("modbus-mode-chip", "MODBUS: UNKNOWN", "offline");
     }
 }
 
@@ -433,7 +560,7 @@ function toggleNetworkPanel() {
 
 function downloadLogs() {
     const container = document.getElementById("log-container");
-    const lines = Array.from(container.querySelectorAll(".log-entry")).reverse().map((entry) => {
+    const lines = Array.from(container.querySelectorAll(".log-entry:not(.hidden)")).reverse().map((entry) => {
         return Array.from(entry.children).map((node) => node.textContent).join(" | ");
     });
 
@@ -444,6 +571,26 @@ function downloadLogs() {
     anchor.download = `sicharge_logs_${new Date().toISOString().replaceAll(":", "-")}.txt`;
     anchor.click();
     URL.revokeObjectURL(url);
+}
+
+function initializeLogFilters() {
+    document.querySelectorAll(".log-filter-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+            logFilter = button.dataset.filter || "ALL";
+            document.querySelectorAll(".log-filter-btn").forEach((item) => item.classList.toggle("active", item === button));
+            applyLogFilter();
+        });
+    });
+}
+
+function initializeDacPresets() {
+    document.querySelectorAll("[data-dac-preset]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const channel = Number(button.dataset.dacPreset);
+            const value = Number(button.dataset.value);
+            syncDAC(channel, value, "preset");
+        });
+    });
 }
 
 document.getElementById("login-form").addEventListener("submit", handleLogin);
@@ -472,3 +619,13 @@ document.getElementById("num-dac1").addEventListener("change", (event) => syncDA
 document.getElementById("num-dac2").addEventListener("change", (event) => syncDAC(2, event.target.value, "num"));
 
 updateNetworkPanel();
+initializeLogFilters();
+initializeDacPresets();
+updateModeChip("wifi-mode-chip", "WIFI MODE: OFFLINE", "offline");
+updateModeChip("mqtt-mode-chip", "MQTT: WAITING", "warn");
+updateModeChip("modbus-mode-chip", "MODBUS: READY", "live");
+updateModeChip("ws-mode-chip", "WS: IDLE", "offline");
+setDacPending(1, false);
+setDacPending(2, false);
+setProgramRunning(false);
+updateOpsSnapshot();

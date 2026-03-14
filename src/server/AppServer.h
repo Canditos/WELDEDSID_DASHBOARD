@@ -41,6 +41,7 @@ private:
     bool hasValidRelayIndex(int idx) const;
     bool hasValidDacChannel(int channel) const;
     void populateHealthJson(DynamicJsonDocument& doc) const;
+    bool rejectUnauthorized(AsyncWebServerRequest *request) const;
     
     bool authenticate(AsyncWebServerRequest *request);
 };

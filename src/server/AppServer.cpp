@@ -48,7 +48,7 @@ void AppServer::setupRoutes() {
     });
 
     server.on("/api/ws-auth", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        if (!authenticate(request)) return request->requestAuthentication();
+        if (!authenticate(request)) return (void)rejectUnauthorized(request);
 
         wsAuthToken = generateWsAuthToken();
         memset(authorizedClients, 0, sizeof(authorizedClients));
@@ -62,7 +62,7 @@ void AppServer::setupRoutes() {
     });
 
     server.on("/api/security/status", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        if (!authenticate(request)) return request->requestAuthentication();
+        if (!authenticate(request)) return (void)rejectUnauthorized(request);
 
         DynamicJsonDocument doc(256);
         doc["adminUser"] = securityConfig.adminUser;
@@ -75,7 +75,7 @@ void AppServer::setupRoutes() {
     });
 
     server.on("/api/health", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        if (!authenticate(request)) return request->requestAuthentication();
+        if (!authenticate(request)) return (void)rejectUnauthorized(request);
 
         DynamicJsonDocument doc(512);
         populateHealthJson(doc);
@@ -87,7 +87,7 @@ void AppServer::setupRoutes() {
 
     // API: Get State
     server.on("/api/state", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        if (!authenticate(request)) return request->requestAuthentication();
+        if (!authenticate(request)) return (void)rejectUnauthorized(request);
         DynamicJsonDocument doc(1024);
         const DeviceState& state = hardware.getState();
         
@@ -105,7 +105,7 @@ void AppServer::setupRoutes() {
 
     // API: WiFi Status
     server.on("/api/wifi/status", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        if (!authenticate(request)) return request->requestAuthentication();
+        if (!authenticate(request)) return (void)rejectUnauthorized(request);
         DynamicJsonDocument doc(256);
         doc["ssid"] = WiFi.SSID();
         doc["status"] = (int)WiFi.status();
@@ -120,19 +120,19 @@ void AppServer::setupRoutes() {
 
     // API: WiFi Scan Results
     server.on("/api/wifi/scan", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        if (!authenticate(request)) return request->requestAuthentication();
+        if (!authenticate(request)) return (void)rejectUnauthorized(request);
         request->send(200, "application/json", wifi.getScanResultsJSON());
     });
     
     server.on("/api/wifi/startScan", HTTP_POST, [this](AsyncWebServerRequest *request) {
-        if (!authenticate(request)) return request->requestAuthentication();
+        if (!authenticate(request)) return (void)rejectUnauthorized(request);
         wifi.scanNetworks();
         request->send(200, "application/json", "{\"status\":\"scanning\"}");
     });
 
     // API: WiFi Save
     server.on("/api/wifi/save", HTTP_POST, [](AsyncWebServerRequest * request) {}, NULL, [this](AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total) {
-        if (!authenticate(request)) return request->requestAuthentication();
+        if (!authenticate(request)) return (void)rejectUnauthorized(request);
 
         String* body = reinterpret_cast<String*>(request->_tempObject);
         if (index == 0) {
@@ -173,7 +173,7 @@ void AppServer::setupRoutes() {
     });
 
     server.on("/api/security/passwords", HTTP_POST, [](AsyncWebServerRequest * request) {}, NULL, [this](AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total) {
-        if (!authenticate(request)) return request->requestAuthentication();
+        if (!authenticate(request)) return (void)rejectUnauthorized(request);
 
         String* body = reinterpret_cast<String*>(request->_tempObject);
         if (index == 0) {
@@ -229,7 +229,7 @@ void AppServer::setupRoutes() {
 
     // API: System Info
     server.on("/api/system/info", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        if (!authenticate(request)) return request->requestAuthentication();
+        if (!authenticate(request)) return (void)rejectUnauthorized(request);
         DynamicJsonDocument doc(512);
         doc["heap"] = ESP.getFreeHeap();
         doc["chipId"] = ESP.getEfuseMac();
@@ -247,6 +247,11 @@ void AppServer::setupRoutes() {
 
 bool AppServer::authenticate(AsyncWebServerRequest *request) {
     return request->authenticate(securityConfig.adminUser, securityConfig.adminPass);
+}
+
+bool AppServer::rejectUnauthorized(AsyncWebServerRequest *request) const {
+    request->send(401, "application/json", "{\"status\":\"unauthorized\"}");
+    return false;
 }
 
 void AppServer::onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {

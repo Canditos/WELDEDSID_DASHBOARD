@@ -39,11 +39,40 @@
                     <div class="status-badge offline" id="badge-modbus" data-cy="status-modbus"><span class="status-dot"></span>MODBUS</div>
                 </div>
                 <div class="topbar-meta">
+                    <div class="mode-row">
+                        <div class="mode-chip" id="wifi-mode-chip">WIFI MODE: OFFLINE</div>
+                        <div class="mode-chip" id="mqtt-mode-chip">MQTT: WAITING</div>
+                        <div class="mode-chip" id="modbus-mode-chip">MODBUS: READY</div>
+                        <div class="mode-chip" id="ws-mode-chip">WS: IDLE</div>
+                    </div>
                     <div class="status-ip" id="display-ip" data-cy="display-ip">Connected IP: ---.---.---.---</div>
                     <button class="ghost-btn" id="logout-btn" data-cy="logout-btn">LOGOUT</button>
                 </div>
             </div>
         </header>
+
+        <section class="ops-strip">
+            <article class="ops-card">
+                <span class="ops-label">NETWORK</span>
+                <strong id="ops-network-value">Awaiting login</strong>
+                <span class="ops-meta" id="ops-network-meta">No controller state loaded</span>
+            </article>
+            <article class="ops-card">
+                <span class="ops-label">COMMAND BUS</span>
+                <strong id="ops-command-value">Standby</strong>
+                <span class="ops-meta" id="ops-command-meta">WebSocket idle</span>
+            </article>
+            <article class="ops-card">
+                <span class="ops-label">ACTIVE OUTPUTS</span>
+                <strong id="ops-relay-value">0 / 8</strong>
+                <span class="ops-meta" id="ops-relay-meta">Relays currently energized</span>
+            </article>
+            <article class="ops-card">
+                <span class="ops-label">ANALOG PROFILE</span>
+                <strong id="ops-dac-value">2.0 V / 4.0 V</strong>
+                <span class="ops-meta" id="ops-dac-meta">TF Voltage and Dispenser Temp</span>
+            </article>
+        </section>
 
         <main class="dashboard-shell">
             <aside class="sidebar">
@@ -83,6 +112,13 @@
                     <div class="section-heading section-heading-with-actions">
                         <span>SYSTEM EVENT LOG</span>
                         <div class="section-actions">
+                            <div class="log-filter-row" id="log-filter-row">
+                                <button class="log-filter-btn active" type="button" data-filter="ALL">ALL</button>
+                                <button class="log-filter-btn" type="button" data-filter="AUTH">AUTH</button>
+                                <button class="log-filter-btn" type="button" data-filter="NET">NET</button>
+                                <button class="log-filter-btn" type="button" data-filter="DAC">DAC</button>
+                                <button class="log-filter-btn" type="button" data-filter="RELAY">RELAY</button>
+                            </div>
                             <button class="small-btn danger-btn" id="clear-logs-btn" data-cy="clear-logs-btn">CLEAR</button>
                             <button class="small-btn accent-btn" id="download-logs-btn">EXPORT</button>
                         </div>
@@ -148,12 +184,21 @@
                                     <div class="relay-group-title" data-cy="dac-1-title">TF VOLTAGE</div>
                                     <div class="helper-text dac-range-text" data-cy="dac-1-range">(Range: 2.0 - 3.0V)</div>
                                 </div>
-                                <button class="small-btn danger-btn" id="reset-dac-1-btn" data-cy="reset-dac-1-btn">RESET</button>
+                                <div class="dac-header-actions">
+                                    <span class="control-chip" id="dac-chip-1">READY</span>
+                                    <button class="small-btn danger-btn" id="reset-dac-1-btn" data-cy="reset-dac-1-btn">RESET</button>
+                                </div>
                             </div>
                             <div class="dac-val-display" id="val-dac1" data-cy="dac-val-1">2.0 V</div>
+                            <div class="dac-footnote">Nominal setpoint for TF analog control</div>
                             <div class="dac-input-row">
                                 <input type="range" id="range-dac1" min="2.0" max="3.0" step="0.1" value="2.0" data-cy="dac-range-1">
                                 <input type="number" id="num-dac1" class="dac-num-input" min="2.0" max="3.0" step="0.1" value="2.0" data-cy="dac-num-1">
+                            </div>
+                            <div class="dac-preset-row">
+                                <button class="preset-btn" type="button" data-dac-preset="1" data-value="2.0">DEFAULT</button>
+                                <button class="preset-btn" type="button" data-dac-preset="1" data-value="2.5">MID</button>
+                                <button class="preset-btn" type="button" data-dac-preset="1" data-value="3.0">MAX</button>
                             </div>
                         </article>
 
@@ -163,14 +208,23 @@
                                     <div class="relay-group-title" data-cy="dac-2-title">DISPENSER TEMP</div>
                                     <div class="helper-text dac-range-text" data-cy="dac-2-range">(Range: 4.0 - 9.0V)</div>
                                 </div>
-                                <button class="small-btn danger-btn" id="reset-dac-2-btn" data-cy="reset-dac-2-btn">RESET</button>
+                                <div class="dac-header-actions">
+                                    <span class="control-chip" id="dac-chip-2">READY</span>
+                                    <button class="small-btn danger-btn" id="reset-dac-2-btn" data-cy="reset-dac-2-btn">RESET</button>
+                                </div>
                             </div>
                             <div class="dac-val-display" id="val-dac2" data-cy="dac-val-2">4.0 V</div>
+                            <div class="dac-footnote">Primary analog channel for dispenser temperature profile</div>
                             <div class="dac-input-row">
                                 <input type="range" id="range-dac2" min="4.0" max="9.0" step="0.1" value="4.0" data-cy="dac-range-2">
                                 <input type="number" id="num-dac2" class="dac-num-input" min="4.0" max="9.0" step="0.1" value="4.0" data-cy="dac-num-2">
                             </div>
-                            <button class="program-btn" id="execute-stepwise-btn" data-cy="execute-stepwise-btn">EXECUTE STEPWISE PROGRAM (4V-9V)</button>
+                            <div class="dac-preset-row">
+                                <button class="preset-btn" type="button" data-dac-preset="2" data-value="4.0">DEFAULT</button>
+                                <button class="preset-btn" type="button" data-dac-preset="2" data-value="6.5">MID</button>
+                                <button class="preset-btn" type="button" data-dac-preset="2" data-value="9.0">MAX</button>
+                            </div>
+                            <button class="program-btn" id="execute-stepwise-btn" data-cy="execute-stepwise-btn">DISPENSER TEMP STEP (4V-9V)</button>
                         </article>
                     </div>
                 </section>

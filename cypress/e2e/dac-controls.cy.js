@@ -36,6 +36,6 @@ describe("DAC controls", () => {
     cy.window().its("__wsMessages").should((messages) => {
       expect(messages.some((msg) => msg.cmd === "step_ramp" && msg.channel === 2)).to.equal(true);
     });
-    cy.get("[data-cy='log-container']").should("contain.text", "Executing stepwise program on Ch2");
+    cy.get("[data-cy='log-container']").should("contain.text", "Executing Dispenser Temp STEP");
   });
 });
