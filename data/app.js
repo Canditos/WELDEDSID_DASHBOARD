@@ -88,7 +88,7 @@ function addLog(msg, type = "SYS") {
     const time = now.toLocaleTimeString("en-GB");
     const normalizedType = String(type).toUpperCase();
     const entry = document.createElement("div");
-    entry.className = "log-entry";
+    entry.className = `log-entry type-${normalizedType}`;
     entry.dataset.type = normalizedType;
     entry.innerHTML = `<span class="log-time">${time}</span><span class="log-type">${escapeHtml(normalizedType)}</span><span class="log-msg">${escapeHtml(msg)}</span>`;
     container.prepend(entry);
@@ -123,6 +123,7 @@ function setRelayPending(index, pending) {
     const button = document.getElementById(`btn-r${index}`);
     if (!button) return;
     button.classList.toggle("pending", pending);
+    button.dataset.state = pending ? "pending" : (relayStates[index] ? "active" : "idle");
 }
 
 function setDacPending(channel, pending) {

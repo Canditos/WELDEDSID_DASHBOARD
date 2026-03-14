@@ -54,28 +54,64 @@ body {
     text-align: center;
 }
 
-.login-card {
-    width: min(420px, 100%);
-    padding: 2rem;
-    border-radius: 12px;
-    background: var(--panel);
-    border: 1px solid var(--line-soft);
+.login-shell {
+    width: min(1080px, 100%);
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(360px, 420px);
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid rgba(120, 166, 197, 0.22);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
 }
 
-.login-img {
-    display: block;
-    width: 170px;
-    margin: 0 auto 1.2rem;
+.login-brand-panel {
+    min-height: 620px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 3rem;
+    background: linear-gradient(135deg, #1dadcf 0%, #14cdb6 100%);
+}
+
+.login-brand-mark {
+    color: #ffffff;
+    font-size: clamp(4rem, 10vw, 7rem);
+    font-weight: 900;
+    line-height: 0.95;
+    letter-spacing: 0.04em;
+}
+
+.login-brand-subtitle {
+    margin-top: 1rem;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+}
+
+.login-card {
+    min-height: 620px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2.4rem;
+    background: linear-gradient(180deg, rgba(17, 24, 36, 0.96) 0%, rgba(10, 16, 24, 0.98) 100%);
 }
 
 .login-title {
-    margin-bottom: 1rem;
-    text-align: center;
+    margin-bottom: 0.8rem;
     color: var(--cyan);
     font-size: 1.3rem;
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
+}
+
+.login-copy {
+    margin-bottom: 1rem;
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.5;
 }
 
 .login-form,
@@ -167,7 +203,11 @@ body {
     background: linear-gradient(180deg, rgba(255, 179, 71, 0.28) 0%, rgba(128, 83, 24, 0.5) 100%);
     border-color: rgba(255, 179, 71, 0.72);
     color: #ffe3b6;
-    animation: pendingPulse 1s ease-in-out infinite;
+    box-shadow:
+        0 0 0 1px rgba(255, 179, 71, 0.18),
+        0 0 20px rgba(255, 179, 71, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    animation: pendingPulse 0.9s ease-in-out infinite;
 }
 
 .relay-btn:active {
@@ -551,6 +591,36 @@ body {
     font-size: 0.87rem;
 }
 
+.log-entry.type-ERR .log-type {
+    color: #ff8f8f;
+}
+
+.log-entry.type-WARN .log-type {
+    color: #ffd08a;
+}
+
+.log-entry.type-AUTH .log-type {
+    color: #7efcc5;
+}
+
+.log-entry.type-RELAY .log-type,
+.log-entry.type-DAC .log-type,
+.log-entry.type-NET .log-type {
+    color: var(--cyan-soft);
+}
+
+.log-entry.type-ERR .log-msg {
+    color: #ffd9d9;
+}
+
+.log-entry.type-WARN .log-msg {
+    color: #ffe5b8;
+}
+
+.log-entry.type-AUTH .log-msg {
+    color: #d9ffef;
+}
+
 .log-entry.hidden {
     display: none;
 }
@@ -749,6 +819,20 @@ input[type="range"] {
 @media (max-width: 820px) {
     #main-container {
         padding: 12px;
+    }
+
+    .login-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .login-brand-panel {
+        min-height: 280px;
+        padding: 2rem 1.5rem;
+    }
+
+    .login-card {
+        min-height: auto;
+        padding: 1.6rem;
     }
 
     .topbar,
