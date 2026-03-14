@@ -20,6 +20,12 @@ The project drives an ESP32-based controller with:
 
 The current dashboard intentionally follows a denser, more professional industrial HMI style instead of a generic consumer web app layout.
 
+## Dashboard Preview
+
+Main operator dashboard:
+
+![Dashboard preview](docs/screenshots/dashboard-preview.png)
+
 ## Main Features
 
 ### Firmware
