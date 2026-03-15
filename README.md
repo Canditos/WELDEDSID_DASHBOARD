@@ -205,6 +205,14 @@ Run headless:
 npm run cypress:run
 ```
 
+### Native firmware checks
+
+Run the local security helper unit tests with the portable WinLibs toolchain:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/run-native-tests.ps1
+```
+
 ### Playwright
 
 ```bash

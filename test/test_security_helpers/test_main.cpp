@@ -4,6 +4,9 @@
 #include "../../src/security/SecurityHelpers.h"
 #include "../../src/common/Constants.h"
 
+void setUp(void) {}
+void tearDown(void) {}
+
 void test_default_config_has_three_enabled_roles() {
     SecurityConfig config;
     SecurityHelpers::applyDefaultSecurityConfig(config);

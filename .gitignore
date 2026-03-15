@@ -8,7 +8,9 @@ tests/test-results
 cypress/downloads
 cypress/screenshots
 preview-dashboard.png
+preview-login.png
 .preview-server.cjs
+build-native-tests
 *.lib
 *.a
 *.o
