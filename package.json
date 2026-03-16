@@ -6,6 +6,7 @@
     "serve:data": "node scripts/serve-data.mjs",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
+    "cypress:demo": "cypress run --headed --browser chrome --spec cypress/e2e/presentation-demo.cy.js",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },

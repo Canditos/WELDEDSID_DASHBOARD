@@ -274,6 +274,7 @@ If the device is still using default credentials, update them as part of commiss
 ## Technical Docs
 
 - [Cypress testing guide](docs/cypress-testing.md)
+- [Project presentation guide](docs/apresentacao-projeto.md)
 - [Wiring notes](docs/wiring.md)
 - [Protocol notes](docs/protocols.md)
 
