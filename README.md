@@ -1,4 +1,4 @@
-# NOVO ESP Review Copy
+# WeldedSid ESP32
 
 ESP32 firmware and embedded web dashboard for an industrial-style monitoring and control panel inspired by the Siemens SICHARGE D interface.
 
