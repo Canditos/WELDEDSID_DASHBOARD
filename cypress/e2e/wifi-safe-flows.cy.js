@@ -15,9 +15,9 @@ describe("Wi-Fi safe flows", () => {
 
   it("does not call wifi save when SSID is empty", () => {
     cy.get("[data-cy='wifi-ssid-input']").clear();
-    cy.window().then((win) => cy.stub(win, "alert").as("alert"));
     cy.get("[data-cy='save-connect-btn']").click();
-    cy.get("@alert").should("have.been.called");
+    cy.get(".toast.warn").should("contain.text", "Select a network");
+    cy.get(".toast.warn").should("contain.text", "Choose or type an SSID before saving.");
     cy.get("@wifiSave.all").should("have.length", 0);
   });
 

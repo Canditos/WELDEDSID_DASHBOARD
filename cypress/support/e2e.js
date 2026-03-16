@@ -174,4 +174,5 @@ Cypress.Commands.add("mountDashboard", (options = {}) => {
   cy.wait("@healthStatus");
   cy.wait("@securityStatus");
   cy.get("[data-cy='relay-control-center-title']").should("be.visible");
+  cy.get("#ws-mode-chip").should("contain.text", "WS: LIVE");
 });
