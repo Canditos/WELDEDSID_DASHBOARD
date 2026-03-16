@@ -54,7 +54,7 @@ void appendRoleUser(JsonArray array, const SecurityUser& user) {
 }
 
 AppServer::AppServer(ConfigManager& configMgr, HardwareHAL& hal, WiFiManager& wifiMgr, MQTTManager& mqttMgr, ModbusManager& modbusMgr)
-    : config(configMgr), hardware(hal), wifi(wifiMgr), mqtt(mqttMgr), modbus(modbusMgr), server(Config::HTTP_PORT), webSocket(Config::WS_PORT) {
+    : config(configMgr), hardware(hal), wifi(wifiMgr), mqtt(mqttMgr), modbus(modbusMgr), server(Config::HTTP_PORT), webSocket(Config::WS_PORT), restartScheduled(false), restartAtMs(0) {
     memset(authorizedClients, 0, sizeof(authorizedClients));
     memset(clientRoles, 0, sizeof(clientRoles));
     for (uint8_t i = 0; i < MAX_WS_CLIENTS; ++i) {
@@ -93,6 +93,12 @@ void AppServer::loop() {
     webSocket.loop();
     if (hardware.hasStateChanged()) {
         broadcastUpdate();
+    }
+
+    if (restartScheduled && millis() >= restartAtMs) {
+        Serial.println("[SERVER] Restarting controller to apply configuration reset.");
+        delay(100);
+        ESP.restart();
     }
 }
 
@@ -396,8 +402,10 @@ void AppServer::setupRoutes() {
         }
 
         const char* scope = doc["scope"] | "all";
+        bool requiresRestart = false;
         if (strcmp(scope, "network") == 0) {
             config.resetNetworkConfig();
+            requiresRestart = true;
         } else if (strcmp(scope, "security") == 0) {
             config.resetSecurityConfig();
             config.loadSecurityConfig(securityConfig);
@@ -414,12 +422,23 @@ void AppServer::setupRoutes() {
             hardware.setRelayMask(0);
             hardware.setDAC(1, Config::DAC1_MIN_V);
             hardware.setDAC(2, Config::DAC2_MIN_V);
+            requiresRestart = true;
         } else {
             request->send(400, "application/json", "{\"status\":\"invalid_scope\"}");
             return;
         }
 
-        request->send(200, "application/json", "{\"status\":\"ok\"}");
+        DynamicJsonDocument response(192);
+        response["status"] = "ok";
+        response["restartRequired"] = requiresRestart;
+        if (requiresRestart) {
+            response["message"] = "Controller will restart to apply reset.";
+            scheduleRestart(800);
+        }
+
+        String output;
+        serializeJson(response, output);
+        request->send(200, "application/json", output);
     });
 
     server.on("/api/system/info", HTTP_GET, [this](AsyncWebServerRequest* request) {
@@ -773,4 +792,9 @@ void AppServer::populateConfigExportJson(DynamicJsonDocument& doc) const {
     hw["relayMask"] = relayMask;
     hw["dac1"] = state.dac1_v;
     hw["dac2"] = state.dac2_v;
+}
+
+void AppServer::scheduleRestart(uint32_t delayMs) {
+    restartScheduled = true;
+    restartAtMs = millis() + delayMs;
 }

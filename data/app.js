@@ -15,11 +15,16 @@ let wifiPollTimer = null;
 let reconnectTimer = null;
 let scanTimer = null;
 let logFilter = "ALL";
+let currentLogPage = 1;
+const LOGS_PER_PAGE = 16;
+const logEntries = [];
 const dacSendTimers = {};
 const relayPendingTimers = {};
 const dacPendingTimers = {};
 let programRunningTimer = null;
 let networkPanelOpen = false;
+let commandStateTimer = null;
+let lastReportedDeviceIp = "";
 
 const ROLE_LEVELS = {
     viewer: 0,
@@ -65,7 +70,17 @@ function enforceRole(role, deniedMessage) {
     }
 
     addLog(deniedMessage, "AUTH");
+    showToast("Access denied", deniedMessage, "warn");
     return false;
+}
+
+function setOpsCardState(id, state) {
+    const card = document.getElementById(id);
+    if (!card) return;
+    card.classList.remove("live", "warn", "offline", "sync");
+    if (state) {
+        card.classList.add(state);
+    }
 }
 
 function setChipState(element, label, state) {
@@ -81,6 +96,81 @@ function updateModeChip(id, label, state) {
     setChipState(document.getElementById(id), label, state);
 }
 
+function showToast(title, message = "", tone = "info", duration = 2600) {
+    const stack = document.getElementById("toast-stack");
+    if (!stack) return;
+
+    const toast = document.createElement("div");
+    toast.className = `toast ${tone}`;
+    toast.innerHTML = `
+        <span class="toast-title">${escapeHtml(title)}</span>
+        <span class="toast-body">${escapeHtml(message)}</span>
+    `;
+    stack.appendChild(toast);
+
+    window.setTimeout(() => {
+        toast.remove();
+    }, duration);
+}
+
+function setCommandState(value, meta, state = "", autoResetMs = 0) {
+    document.getElementById("ops-command-value").innerText = value;
+    document.getElementById("ops-command-meta").innerText = meta;
+    setOpsCardState("ops-command-card", state);
+
+    if (commandStateTimer) {
+        clearTimeout(commandStateTimer);
+        commandStateTimer = null;
+    }
+
+    if (autoResetMs > 0) {
+        commandStateTimer = setTimeout(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                setCommandState("Linked", "WebSocket session established", "live");
+            }
+        }, autoResetMs);
+    }
+}
+
+function updateAccessLocation(deviceIp) {
+    const accessLabel = document.getElementById("display-ip");
+    const accessLink = document.getElementById("device-open-link");
+    if (!accessLabel || !accessLink) return;
+
+    const viewHost = window.location.host || window.location.hostname || "offline";
+    const viewHostName = window.location.hostname || "";
+    const normalizedDeviceIp = deviceIp || "---.---.---.---";
+    const isPreview = viewHostName === "127.0.0.1" || viewHostName === "localhost";
+    const sameHost = deviceIp && viewHostName === deviceIp;
+
+    if (isPreview) {
+        accessLabel.innerText = `Preview: ${viewHost} | Device: ${normalizedDeviceIp}`;
+    } else if (sameHost) {
+        accessLabel.innerText = `Device IP: ${normalizedDeviceIp}`;
+    } else {
+        accessLabel.innerText = `View: ${viewHost} | Device: ${normalizedDeviceIp}`;
+    }
+
+    accessLabel.classList.toggle("warn", !!deviceIp && !sameHost && !isPreview);
+
+    if (deviceIp && (!sameHost || isPreview)) {
+        accessLink.hidden = false;
+        accessLink.href = `${window.location.protocol}//${deviceIp}/`;
+        accessLink.innerText = isPreview ? "OPEN DEVICE" : "SYNC TO DEVICE";
+    } else {
+        accessLink.hidden = true;
+        accessLink.removeAttribute("href");
+    }
+
+    if (deviceIp && lastReportedDeviceIp && lastReportedDeviceIp !== deviceIp) {
+        showToast("Device IP updated", `Controller now reports ${deviceIp}`, "info", 3400);
+    }
+
+    if (deviceIp) {
+        lastReportedDeviceIp = deviceIp;
+    }
+}
+
 function updateOpsSnapshot() {
     const activeRelays = relayStates.filter((state) => state === true).length;
     const dac1 = dacValues[0] ?? "2.0";
@@ -89,6 +179,8 @@ function updateOpsSnapshot() {
     document.getElementById("ops-relay-value").innerText = `${activeRelays} / 8`;
     document.getElementById("ops-relay-meta").innerText = activeRelays > 0 ? "Relays currently energized" : "All relay outputs idle";
     document.getElementById("ops-dac-value").innerText = `${dac1} V / ${dac2} V`;
+    setOpsCardState("ops-relay-card", activeRelays > 0 ? "live" : "");
+    setOpsCardState("ops-dac-card", "live");
 }
 
 function setElementDisabled(id, disabled) {
@@ -149,30 +241,55 @@ function applyRolePermissions() {
 }
 
 function applyLogFilter() {
-    const entries = document.querySelectorAll(".log-entry");
-    entries.forEach((entry) => {
-        const entryType = entry.dataset.type || "";
-        const visible = logFilter === "ALL" || entryType === logFilter;
-        entry.classList.toggle("hidden", !visible);
-    });
+    renderLogPage();
+}
+
+function getFilteredLogEntries() {
+    return logEntries.filter((entry) => logFilter === "ALL" || entry.type === logFilter);
+}
+
+function renderLogPage() {
+    const container = document.getElementById("log-container");
+    const pageStatus = document.getElementById("log-page-status");
+    const prevButton = document.getElementById("log-prev-btn");
+    const nextButton = document.getElementById("log-next-btn");
+    if (!container || !pageStatus || !prevButton || !nextButton) return;
+
+    const filteredEntries = getFilteredLogEntries();
+    const totalPages = Math.max(1, Math.ceil(filteredEntries.length / LOGS_PER_PAGE));
+    currentLogPage = Math.min(currentLogPage, totalPages);
+    currentLogPage = Math.max(1, currentLogPage);
+
+    const startIndex = (currentLogPage - 1) * LOGS_PER_PAGE;
+    const visibleEntries = filteredEntries.slice(startIndex, startIndex + LOGS_PER_PAGE);
+
+    container.innerHTML = visibleEntries.map((entry) => `
+        <div class="log-entry type-${entry.type}" data-type="${entry.type}">
+            <span class="log-time">${escapeHtml(entry.time)}</span>
+            <span class="log-type">${escapeHtml(entry.type)}</span>
+            <span class="log-msg">${escapeHtml(entry.message)}</span>
+        </div>
+    `).join("");
+
+    if (visibleEntries.length === 0) {
+        container.innerHTML = '<div class="empty-state">No log entries for this filter</div>';
+    }
+
+    pageStatus.textContent = `PAGE ${currentLogPage} / ${totalPages}`;
+    prevButton.disabled = currentLogPage === 1;
+    nextButton.disabled = currentLogPage === totalPages;
 }
 
 function addLog(msg, type = "SYS") {
-    const container = document.getElementById("log-container");
-    if (!container) return;
-
     const now = new Date();
     const time = now.toLocaleTimeString("en-GB");
     const normalizedType = String(type).toUpperCase();
-    const entry = document.createElement("div");
-    entry.className = `log-entry type-${normalizedType}`;
-    entry.dataset.type = normalizedType;
-    entry.innerHTML = `<span class="log-time">${time}</span><span class="log-type">${escapeHtml(normalizedType)}</span><span class="log-msg">${escapeHtml(msg)}</span>`;
-    container.prepend(entry);
-    while (container.children.length > 200) {
-        container.removeChild(container.lastChild);
+    logEntries.unshift({ time, type: normalizedType, message: msg });
+    while (logEntries.length > 200) {
+        logEntries.pop();
     }
-    applyLogFilter();
+    currentLogPage = 1;
+    renderLogPage();
 }
 
 async function fetchJSON(path, options = {}) {
@@ -239,8 +356,10 @@ async function handleLogin(event) {
             throw new Error("Missing token");
         }
 
+        document.body.style.overflow = "hidden";
+        updateAccessLocation("");
         setVisible("login-overlay", false);
-        setVisible("main-container", true, "block");
+        setVisible("main-container", true, "flex");
         setVisible("login-error", false);
         applyRolePermissions();
 
@@ -257,10 +376,13 @@ async function handleLogin(event) {
             updateSystemHealth();
         }, 15000);
         addLog(`User authorized: ${username}`, "AUTH");
+        showToast("Session opened", `Signed in as ${currentUserRole}`, "success");
     } catch (error) {
+        document.getElementById("login-error").innerText = "Invalid credentials or inactive account";
         setVisible("login-error", true);
         currentUserRole = "viewer";
         addLog("Authentication failed", "ERR");
+        showToast("Login failed", "Check username, password, or active role.", "error");
     }
 }
 
@@ -273,6 +395,12 @@ function logout() {
     relayStates = new Array(8).fill(null);
     dacValues = [null, null];
     firstLoadProcessed = false;
+    document.body.style.overflow = "";
+    setOpsCardState("ops-network-card", "");
+    setOpsCardState("ops-command-card", "");
+    setOpsCardState("ops-relay-card", "");
+    setOpsCardState("ops-dac-card", "");
+    updateAccessLocation("");
     setVisible("main-container", false);
     setVisible("offline-overlay", false);
     setVisible("login-overlay", true, "flex");
@@ -285,19 +413,18 @@ function initWS() {
     if (!wsToken) return;
 
     updateModeChip("ws-mode-chip", "WS: CONNECTING", "warn");
+    setCommandState("Connecting", "Opening WebSocket session", "warn");
     ws = new WebSocket(`ws://${location.hostname}:81/`);
     ws.onopen = () => {
         addLog("Real-time connection open", "NET");
         updateModeChip("ws-mode-chip", "WS: LIVE", "live");
-        document.getElementById("ops-command-value").innerText = "Linked";
-        document.getElementById("ops-command-meta").innerText = "WebSocket session established";
+        setCommandState("Linked", "WebSocket session established", "live");
         ws.send(JSON.stringify({ cmd: "auth", token: wsToken }));
     };
     ws.onclose = () => {
         addLog("Connection lost. Retrying...", "ERR");
         updateModeChip("ws-mode-chip", "WS: RETRYING", "warn");
-        document.getElementById("ops-command-value").innerText = "Retrying";
-        document.getElementById("ops-command-meta").innerText = "Command bus reconnect in progress";
+        setCommandState("Retrying", "Command bus reconnect in progress", "offline");
         if (reconnectTimer) clearTimeout(reconnectTimer);
         reconnectTimer = setTimeout(initWS, 2000);
     };
@@ -306,6 +433,8 @@ function initWS() {
         if (data.type === "auth" && !data.ok) {
             addLog("WebSocket authentication failed", "ERR");
             updateModeChip("ws-mode-chip", "WS: AUTH FAIL", "offline");
+            setCommandState("Auth fail", "Realtime control session rejected", "offline");
+            showToast("Realtime session failed", "WebSocket authentication was rejected.", "error");
             ws.close();
             return;
         }
@@ -314,6 +443,7 @@ function initWS() {
             authUser = data.username || authUser;
             applyRolePermissions();
             addLog(`Realtime session active for ${authUser} (${currentUserRole})`, "AUTH");
+            setCommandState("Ready", `Controls armed for ${authUser}`, "live", 1500);
             return;
         }
         if (data.type === "init" || data.type === "update") {
@@ -345,6 +475,7 @@ function updateRelayButton(index, nextState) {
     }
     if (firstLoadProcessed && oldState !== null && oldState !== nextState) {
         addLog(`${RELAY_NAMES[index]} is now ${nextState ? "ON" : "OFF"}`, "RELAY");
+        setCommandState("Synchronized", `${RELAY_NAMES[index]} is now ${nextState ? "ON" : "OFF"}`, "live", 1400);
     }
     updateOpsSnapshot();
 }
@@ -366,6 +497,7 @@ function updateDacVisual(channel, voltage) {
 
     if (firstLoadProcessed && oldValue !== null && oldValue !== value) {
         addLog(`${channel === 1 ? "TF VOLTAGE" : "DISPENSER TEMP"} set to ${value}V`, "DAC");
+        setCommandState("Synchronized", `${channel === 1 ? "TF VOLTAGE" : "DISPENSER TEMP"} set to ${value}V`, "live", 1400);
     }
     updateOpsSnapshot();
 }
@@ -406,11 +538,12 @@ function sendWsCommand(payload) {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
         addLog("WebSocket not connected", "ERR");
         updateModeChip("ws-mode-chip", "WS: OFFLINE", "offline");
+        setCommandState("Offline", "WebSocket transport unavailable", "offline");
+        showToast("Command not sent", "Realtime connection is not available.", "error");
         return;
     }
 
-    document.getElementById("ops-command-value").innerText = "Dispatching";
-    document.getElementById("ops-command-meta").innerText = `Last command: ${payload.cmd.toUpperCase()}`;
+    setCommandState("Dispatching", `Last command: ${payload.cmd.toUpperCase()}`, "sync");
     ws.send(JSON.stringify(payload));
 }
 
@@ -431,6 +564,7 @@ function resetRelayGroup(indices) {
 
 function resetAllRelays() {
     addLog("Global Reset initiated", "WARN");
+    showToast("Reset all relays", "Turning all relay outputs OFF.", "warn");
     for (let idx = 0; idx < RELAY_NAMES.length; idx += 1) {
         setRelayPending(idx, true);
         relayPendingTimers[idx] = setTimeout(() => setRelayPending(idx, false), 1600);
@@ -465,8 +599,8 @@ function startAutoProgram(channel) {
     addLog("Executing Dispenser Temp STEP", "INFO");
     clearTimeout(programRunningTimer);
     setProgramRunning(true);
-    document.getElementById("ops-command-value").innerText = "Program Active";
-    document.getElementById("ops-command-meta").innerText = "Dispenser Temp step profile running";
+    setCommandState("Program Active", "Dispenser Temp step profile running", "warn");
+    showToast("Program started", "Dispenser Temp STEP is now running.", "info");
     programRunningTimer = setTimeout(() => setProgramRunning(false), 5500);
     sendWsCommand({
         cmd: "step_ramp",
@@ -487,10 +621,11 @@ async function updateWifiStatus() {
             ? `Connected to ${data.ssid}`
             : `${modeLabel}${data.ssid ? ` (${data.ssid})` : ""}`;
 
-        document.getElementById("display-ip").innerText = `Connected IP: ${ipText}`;
+        updateAccessLocation(ipText);
         document.getElementById("wifi-status").innerText = `Status: ${statusText}`;
         document.getElementById("ops-network-value").innerText = modeLabel;
         document.getElementById("ops-network-meta").innerText = data.ssid ? `${data.ssid} | ${ipText}` : `Controller IP ${ipText}`;
+        setOpsCardState("ops-network-card", data.status === 3 ? "live" : "warn");
         updateStatusBadge("wifi", data.status === 3);
 
         if (data.status === 3 && document.getElementById("offline-overlay").style.display === "flex") {
@@ -501,6 +636,7 @@ async function updateWifiStatus() {
         document.getElementById("wifi-status").innerText = "Status: Unable to load Wi-Fi status";
         document.getElementById("ops-network-value").innerText = "Unavailable";
         document.getElementById("ops-network-meta").innerText = "No network status response";
+        setOpsCardState("ops-network-card", "offline");
     }
 }
 
@@ -514,6 +650,7 @@ async function updateSystemHealth() {
         updateModeChip("wifi-mode-chip", `WIFI MODE: ${getWifiModeLabel(data.wifiMode).toUpperCase()}`, data.wifiConnected ? "live" : "warn");
         updateModeChip("mqtt-mode-chip", data.mqttConnected ? "MQTT: LIVE" : "MQTT: STANDBY", data.mqttConnected ? "live" : "warn");
         updateModeChip("modbus-mode-chip", data.modbusHealthy ? "MODBUS: READY" : "MODBUS: CHECK", data.modbusHealthy ? "live" : "warn");
+        updateAccessLocation(data.wifiIp || "");
         if (!document.getElementById("ops-network-meta").innerText || document.getElementById("ops-network-meta").innerText === "No network status response") {
             document.getElementById("ops-network-meta").innerText = `Controller IP ${data.wifiIp || "---.---.---.---"}`;
         }
@@ -524,6 +661,7 @@ async function updateSystemHealth() {
         updateModeChip("wifi-mode-chip", "WIFI MODE: UNKNOWN", "offline");
         updateModeChip("mqtt-mode-chip", "MQTT: UNKNOWN", "offline");
         updateModeChip("modbus-mode-chip", "MODBUS: UNKNOWN", "offline");
+        setOpsCardState("ops-network-card", "offline");
     }
 }
 
@@ -557,6 +695,7 @@ async function startScan() {
     if (!enforceRole("admin", "Only admin users can scan or change network settings")) return;
     document.getElementById("wifi-list").innerHTML = '<div class="empty-state">Scanning...</div>';
     addLog("Scanning for Wi-Fi networks...", "INFO");
+    showToast("Wi-Fi scan", "Searching for nearby networks.", "info");
     await fetchJSON("/api/wifi/startScan", { method: "POST" });
 
     if (scanTimer) clearInterval(scanTimer);
@@ -586,12 +725,13 @@ async function connectWifi() {
     const ssid = document.getElementById("wifi-ssid").value.trim();
     const pass = document.getElementById("wifi-pass").value;
     if (!ssid) {
-        alert("Select a network first");
+        showToast("Select a network", "Choose or type an SSID before saving.", "warn");
         return;
     }
 
     setVisible("offline-overlay", true, "flex");
     addLog(`Saving credentials for ${ssid}`, "INFO");
+    showToast("Applying Wi-Fi", `Saving credentials for ${ssid}.`, "info", 3200);
 
     try {
         await fetchJSON("/api/wifi/save", {
@@ -652,8 +792,10 @@ async function exportConfig() {
         anchor.click();
         URL.revokeObjectURL(url);
         addLog("Configuration backup exported", "AUTH");
+        showToast("Backup exported", "Configuration backup downloaded.", "success");
     } catch (error) {
         addLog("Failed to export configuration", "ERR");
+        showToast("Export failed", "Could not export the controller configuration.", "error");
     }
 }
 
@@ -673,9 +815,11 @@ async function handleImportConfig(event) {
             body: text
         });
         addLog("Configuration import applied", "AUTH");
+        showToast("Configuration imported", "The backup file was applied successfully.", "success");
         await Promise.all([loadSecurityStatus(), updateWifiStatus(), updateSystemHealth()]);
     } catch (error) {
         addLog("Failed to import configuration", "ERR");
+        showToast("Import failed", "The selected backup could not be applied.", "error");
     } finally {
         event.target.value = "";
     }
@@ -685,12 +829,20 @@ async function resetConfiguration(scope) {
     if (!enforceRole("admin", "Only admin users can reset configuration")) return;
 
     try {
-        await fetchJSON("/api/config/reset", {
+        const result = await fetchJSON("/api/config/reset", {
             method: "POST",
             body: JSON.stringify({ scope })
         });
 
         addLog(`Configuration reset executed for scope: ${scope}`, "AUTH");
+        if (result.restartRequired) {
+            showToast("Controller restarting", "Reset applied. The controller will reboot and may return in AP mode.", "warn", 5000);
+            addLog("Controller restart scheduled to apply reset", "WARN");
+            logout();
+            return;
+        }
+
+        showToast("Configuration reset", `Reset completed for ${scope}.`, "warn");
         if (scope === "all") {
             addLog("Security was reset to defaults. Please sign in again.", "WARN");
             logout();
@@ -699,6 +851,7 @@ async function resetConfiguration(scope) {
         await Promise.all([loadSecurityStatus(), updateWifiStatus(), updateSystemHealth()]);
     } catch (error) {
         addLog(`Failed to reset configuration scope: ${scope}`, "ERR");
+        showToast("Reset failed", `Could not reset scope ${scope}.`, "error");
     }
 }
 
@@ -729,17 +882,20 @@ async function saveSecuritySettings() {
 
     if (!users[0].username) {
         addLog("Admin username cannot be empty", "ERR");
+        showToast("Validation error", "Admin username cannot be empty.", "error");
         return;
     }
 
     const invalidRole = users.find((user) => user.enabled && user.password && user.password.length < 8);
     if (invalidRole) {
         addLog(`${invalidRole.role.toUpperCase()} password must have at least 8 characters`, "ERR");
+        showToast("Validation error", `${invalidRole.role.toUpperCase()} password must have at least 8 characters.`, "error");
         return;
     }
 
     if (users[0].username !== authUser && !users[0].password) {
         addLog("Changing the admin username requires a new admin password in the same save", "ERR");
+        showToast("Validation error", "Changing the admin username also requires a new admin password.", "error");
         return;
     }
 
@@ -770,13 +926,16 @@ async function saveSecuritySettings() {
         }
         await updateSystemHealth();
         addLog("Security settings updated", "AUTH");
+        showToast("Security updated", "Users and passwords were saved.", "success");
     } catch (error) {
         addLog("Failed to update security settings", "ERR");
+        showToast("Security update failed", "Could not save users or passwords.", "error");
     }
 }
 
 function clearLogs() {
-    document.getElementById("log-container").innerHTML = "";
+    logEntries.length = 0;
+    currentLogPage = 1;
     addLog("Logs cleared", "INFO");
 }
 
@@ -793,10 +952,10 @@ function toggleNetworkPanel() {
 }
 
 function downloadLogs() {
-    const container = document.getElementById("log-container");
-    const lines = Array.from(container.querySelectorAll(".log-entry:not(.hidden)")).reverse().map((entry) => {
-        return Array.from(entry.children).map((node) => node.textContent).join(" | ");
-    });
+    const lines = getFilteredLogEntries()
+        .slice()
+        .reverse()
+        .map((entry) => `${entry.time} | ${entry.type} | ${entry.message}`);
 
     const blob = new Blob([lines.join("\n")], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -811,9 +970,22 @@ function initializeLogFilters() {
     document.querySelectorAll(".log-filter-btn").forEach((button) => {
         button.addEventListener("click", () => {
             logFilter = button.dataset.filter || "ALL";
+            currentLogPage = 1;
             document.querySelectorAll(".log-filter-btn").forEach((item) => item.classList.toggle("active", item === button));
             applyLogFilter();
         });
+    });
+}
+
+function initializeLogPagination() {
+    document.getElementById("log-prev-btn").addEventListener("click", () => {
+        currentLogPage = Math.max(1, currentLogPage - 1);
+        renderLogPage();
+    });
+
+    document.getElementById("log-next-btn").addEventListener("click", () => {
+        currentLogPage += 1;
+        renderLogPage();
     });
 }
 
@@ -859,6 +1031,7 @@ document.getElementById("num-dac2").addEventListener("change", (event) => syncDA
 
 updateNetworkPanel();
 initializeLogFilters();
+initializeLogPagination();
 initializeDacPresets();
 updateModeChip("wifi-mode-chip", "WIFI MODE: OFFLINE", "offline");
 updateModeChip("mqtt-mode-chip", "MQTT: WAITING", "warn");
@@ -869,3 +1042,4 @@ setDacPending(2, false);
 setProgramRunning(false);
 updateOpsSnapshot();
 applyRolePermissions();
+renderLogPage();

@@ -17,9 +17,10 @@ describe("Dashboard V2 enhancements", () => {
   it("filters logs by category without deleting entries", () => {
     cy.get("[data-cy='relay-btn-1']").click();
     cy.get("[data-cy='execute-stepwise-btn']").click();
+    cy.get("[data-cy='log-container']").should("contain.text", "DC2 FB is now ON");
     cy.contains(".log-filter-btn", "RELAY").click();
     cy.get(".log-filter-btn.active").should("contain.text", "RELAY");
-    cy.get(".log-entry:not(.hidden) .log-type").each(($item) => {
+    cy.get(".log-entry .log-type").each(($item) => {
       cy.wrap($item).should("have.text", "RELAY");
     });
     cy.contains(".log-filter-btn", "ALL").click();

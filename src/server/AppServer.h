@@ -40,6 +40,8 @@ private:
     String clientUsernames[MAX_WS_CLIENTS];
     PendingWsSession pendingSessions[MAX_WS_CLIENTS];
     SecurityConfig securityConfig;
+    bool restartScheduled;
+    uint32_t restartAtMs;
     
     void setupRoutes();
     void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length);
@@ -54,6 +56,7 @@ private:
     void clearPendingSession(int index);
     bool hasValidRelayIndex(int idx) const;
     bool hasValidDacChannel(int channel) const;
+    void scheduleRestart(uint32_t delayMs);
     void populateHealthJson(DynamicJsonDocument& doc) const;
     void populateSecurityStatusJson(DynamicJsonDocument& doc) const;
     void populateConfigExportJson(DynamicJsonDocument& doc) const;

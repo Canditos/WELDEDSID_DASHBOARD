@@ -55,29 +55,32 @@
                         <div class="mode-chip" id="modbus-mode-chip">MODBUS: READY</div>
                         <div class="mode-chip" id="ws-mode-chip">WS: IDLE</div>
                     </div>
-                    <div class="status-ip" id="display-ip" data-cy="display-ip">Connected IP: ---.---.---.---</div>
+                    <div class="access-row">
+                        <div class="status-ip" id="display-ip" data-cy="display-ip">View: ---.---.---.--- | Device: ---.---.---.---</div>
+                        <a class="status-link" id="device-open-link" href="#" target="_blank" rel="noreferrer" hidden>OPEN DEVICE</a>
+                    </div>
                     <button class="ghost-btn" id="logout-btn" data-cy="logout-btn">LOGOUT</button>
                 </div>
             </div>
         </header>
 
         <section class="ops-strip">
-            <article class="ops-card">
+            <article class="ops-card" id="ops-network-card">
                 <span class="ops-label">NETWORK</span>
                 <strong id="ops-network-value">Awaiting login</strong>
                 <span class="ops-meta" id="ops-network-meta">No controller state loaded</span>
             </article>
-            <article class="ops-card">
+            <article class="ops-card" id="ops-command-card">
                 <span class="ops-label">COMMAND BUS</span>
                 <strong id="ops-command-value">Standby</strong>
                 <span class="ops-meta" id="ops-command-meta">WebSocket idle</span>
             </article>
-            <article class="ops-card">
+            <article class="ops-card" id="ops-relay-card">
                 <span class="ops-label">ACTIVE OUTPUTS</span>
                 <strong id="ops-relay-value">0 / 8</strong>
                 <span class="ops-meta" id="ops-relay-meta">Relays currently energized</span>
             </article>
-            <article class="ops-card">
+            <article class="ops-card" id="ops-dac-card">
                 <span class="ops-label">ANALOG PROFILE</span>
                 <strong id="ops-dac-value">2.0 V / 4.0 V</strong>
                 <span class="ops-meta" id="ops-dac-meta">TF Voltage and Dispenser Temp</span>
@@ -155,21 +158,26 @@
                     </div>
                     <div class="log-panel">
                         <div class="log-container" id="log-container" data-cy="log-container"></div>
+                        <div class="log-pagination">
+                            <button class="small-btn ghost-btn" type="button" id="log-prev-btn">PREV</button>
+                            <span class="log-page-status" id="log-page-status">PAGE 1 / 1</span>
+                            <button class="small-btn ghost-btn" type="button" id="log-next-btn">NEXT</button>
+                        </div>
                     </div>
                 </section>
             </aside>
 
             <section class="content">
                 <section class="panel-section">
-                    <div class="section-heading section-heading-with-actions" data-cy="relay-control-center-title">
+                    <div class="section-heading section-heading-with-actions relay-heading" data-cy="relay-control-center-title">
                         <span>RELAY CONTROL CENTER</span>
-                        <button class="small-btn danger-btn" id="reset-all-relays-btn" data-cy="reset-all-relays-btn">RESET ALL RELAYS</button>
+                        <button class="small-btn danger-btn reset-btn" id="reset-all-relays-btn" data-cy="reset-all-relays-btn">RESET ALL RELAYS</button>
                     </div>
                     <div class="relay-shell">
                         <article class="relay-group relay-group-wide" data-cy="relay-group-1">
                             <div class="relay-group-header">
                                 <span class="relay-group-title">GROUP 1: FEEDBACK RELAY</span>
-                                <button class="small-btn danger-btn" id="reset-group-1-btn" data-cy="reset-group-1-btn">RESET GROUP</button>
+                                <button class="small-btn danger-btn reset-btn" id="reset-group-1-btn" data-cy="reset-group-1-btn">RESET GROUP</button>
                             </div>
                             <div class="relay-grid relay-grid-four">
                                 <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-0-header"><span>R1</span></div><button class="relay-btn" id="btn-r0" data-cy="relay-btn-0">DC1 FB</button></div>
@@ -183,7 +191,7 @@
                             <article class="relay-group" data-cy="relay-group-2">
                                 <div class="relay-group-header">
                                     <span class="relay-group-title">GROUP 2: 24V DC</span>
-                                    <button class="small-btn danger-btn" id="reset-group-2-btn" data-cy="reset-group-2-btn">RESET GROUP</button>
+                                    <button class="small-btn danger-btn reset-btn" id="reset-group-2-btn" data-cy="reset-group-2-btn">RESET GROUP</button>
                                 </div>
                                 <div class="relay-grid">
                                     <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-4-header"><span>R5</span></div><button class="relay-btn" id="btn-r4" data-cy="relay-btn-4">DC1 24V</button></div>
@@ -194,7 +202,7 @@
                             <article class="relay-group" data-cy="relay-group-3">
                                 <div class="relay-group-header">
                                     <span class="relay-group-title">GROUP 3: MAIN</span>
-                                    <button class="small-btn danger-btn" id="reset-group-3-btn" data-cy="reset-group-3-btn">RESET GROUP</button>
+                                    <button class="small-btn danger-btn reset-btn" id="reset-group-3-btn" data-cy="reset-group-3-btn">RESET GROUP</button>
                                 </div>
                                 <div class="relay-grid">
                                     <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-6-header"><span>R7</span></div><button class="relay-btn" id="btn-r6" data-cy="relay-btn-6">MG1 FB</button></div>
@@ -220,7 +228,7 @@
                                 </div>
                             </div>
                             <div class="dac-val-display" id="val-dac1" data-cy="dac-val-1">2.0 V</div>
-                            <div class="dac-footnote">Nominal setpoint for TF analog control</div>
+                            <div class="dac-footnote">Nominal TF analog setpoint</div>
                             <div class="dac-input-row">
                                 <input type="range" id="range-dac1" min="2.0" max="3.0" step="0.1" value="2.0" data-cy="dac-range-1">
                                 <input type="number" id="num-dac1" class="dac-num-input" min="2.0" max="3.0" step="0.1" value="2.0" data-cy="dac-num-1">
@@ -244,7 +252,7 @@
                                 </div>
                             </div>
                             <div class="dac-val-display" id="val-dac2" data-cy="dac-val-2">4.0 V</div>
-                            <div class="dac-footnote">Primary analog channel for dispenser temperature profile</div>
+                            <div class="dac-footnote">Primary dispenser temperature channel</div>
                             <div class="dac-input-row">
                                 <input type="range" id="range-dac2" min="4.0" max="9.0" step="0.1" value="4.0" data-cy="dac-range-2">
                                 <input type="number" id="num-dac2" class="dac-num-input" min="4.0" max="9.0" step="0.1" value="4.0" data-cy="dac-num-2">
@@ -262,6 +270,8 @@
         </main>
 
     </div>
+
+    <div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
     <script src="/app.js"></script>
 </body>
