@@ -1,11 +1,11 @@
-# Apresentacao do Projeto NOVO ESP
+# Apresentacao do Projeto WELDEDSID_DASHBOARD
 
 ## Objetivo
 
-O projeto `NOVO_ESP_review_copy` implementa um painel de controlo industrial baseado em `ESP32`, com uma dashboard web embebida no proprio dispositivo. O sistema foi pensado para monitorizar e comandar saídas digitais e canais analogicos de forma simples, visual e segura.
+O projeto `WELDEDSID_DASHBOARD` implementa um painel de controlo industrial baseado em `ESP32`, com uma dashboard web embebida no proprio dispositivo. O sistema foi pensado para monitorizar e comandar saidas digitais e canais analogicos de forma simples, visual e segura.
 
 Numa perspetiva de apresentacao, o projeto demonstra:
-- controlo remoto de relés em tempo real
+- controlo remoto de reles em tempo real
 - ajuste de tensoes analogicas por DAC
 - monitorizacao de estados de rede e servicos
 - configuracao de Wi-Fi e seguranca a partir da dashboard
@@ -22,23 +22,23 @@ O sistema esta dividido em duas grandes partes:
 
 2. Dashboard web embebida
    - servida diretamente pelo ESP32 a partir de `SPIFFS`
-   - permite operar relés, DACs, configuracao Wi-Fi e seguranca
+   - permite operar reles, DACs, configuracao Wi-Fi e seguranca
    - recebe atualizacoes em tempo real via `WebSocket`
 
 ## Funcionalidades Principais
 
-### 1. Controlo de Relés
+### 1. Controlo de Reles
 
-O sistema disponibiliza `8 relés`, organizados em grupos funcionais:
+O sistema disponibiliza `8 reles`, organizados em grupos funcionais:
 - `Group 1`: Feedback Relay
 - `Group 2`: 24V DC
 - `Group 3`: Main
 
 A dashboard permite:
-- ligar e desligar cada relé individualmente
+- ligar e desligar cada rele individualmente
 - executar reset por grupo
-- executar reset global de todos os relés
-- acompanhar o estado visual dos relés em tempo real
+- executar reset global de todos os reles
+- acompanhar o estado visual dos reles em tempo real
 
 ### 2. Controlo Analogico por DAC
 
@@ -98,13 +98,13 @@ A dashboard inclui uma area de logs com:
 
 ## Estrutura do Projeto
 
-- [src](/C:/Users/marco/Documents/Playground/NOVO_ESP_review_copy/src)
+- [src](../src)
   Firmware principal e modulos do sistema
-- [data](/C:/Users/marco/Documents/Playground/NOVO_ESP_review_copy/data)
+- [data](../data)
   Dashboard embebida no ESP32
-- [cypress](/C:/Users/marco/Documents/Playground/NOVO_ESP_review_copy/cypress)
+- [cypress](../cypress)
   Testes automatizados da interface
-- [docs](/C:/Users/marco/Documents/Playground/NOVO_ESP_review_copy/docs)
+- [docs](../docs)
   Documentacao tecnica e de apresentacao
 
 ## Valor do Projeto
@@ -116,16 +116,16 @@ Este projeto mostra a integracao entre hardware, firmware, interface web e teste
 - automatizacao de testes
 - organizacao e documentacao de projeto
 
-## Demonstração com Cypress
+## Demonstracao com Cypress
 
 Foi preparada uma spec de demonstracao em:
-- [presentation-demo.cy.js](/C:/Users/marco/Documents/Playground/NOVO_ESP_review_copy/cypress/e2e/presentation-demo.cy.js)
+- [presentation-demo.cy.js](../cypress/e2e/presentation-demo.cy.js)
 
 Esta demonstracao:
 - usa `mocks` para nao alterar o Wi-Fi real
 - faz login automaticamente
 - mostra estados do sistema
-- comuta relés
+- comuta reles
 - altera DACs
 - executa o `Dispenser Temp STEP`
 - navega pelos logs com pausas visiveis
@@ -149,7 +149,7 @@ npm run cypress:demo
 
 - login no sistema
 - dashboard operacional
-- acao em relés
+- acao em reles
 - acao em DACs
 - execucao do modo step
 - confirmacao visual nos logs
@@ -163,6 +163,6 @@ Para apresentar este projeto no trabalho, o ideal e estruturar a explicacao assi
 3. Principais funcionalidades
 4. Seguranca e configuracao
 5. Testes Cypress
-6. Demonstração ao vivo
+6. Demonstracao ao vivo
 
 Desta forma, a apresentacao fica equilibrada entre visao funcional, valor tecnico e prova pratica.

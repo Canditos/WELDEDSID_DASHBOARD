@@ -1,4 +1,4 @@
-# NOVO ESP Review Copy
+# WELDEDSID_DASHBOARD
 
 ESP32 firmware and embedded web dashboard for an industrial-style monitoring and control panel inspired by the Siemens SICHARGE D interface.
 
@@ -145,8 +145,8 @@ Boot sequence in the current firmware:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Canditos/NOVO_ESP_review_copy.git
-cd NOVO_ESP_review_copy
+git clone https://github.com/Canditos/WELDEDSID_DASHBOARD.git
+cd WELDEDSID_DASHBOARD
 ```
 
 ### 2. Install JavaScript dependencies
