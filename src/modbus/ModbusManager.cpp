@@ -4,6 +4,7 @@ ModbusManager::ModbusManager(HardwareHAL& hal) : hardware(hal) {}
 
 void ModbusManager::begin() {
     mb.server(); // Initialize as TCP Slave
+    started = true;
     
     // Add Coils for Relays and init tracking
     for (int i = 0; i < 8; i++) {
@@ -20,6 +21,7 @@ void ModbusManager::begin() {
 }
 
 void ModbusManager::loop() {
+    if (!started) return;
     mb.task();
     
     // 1. Detect and apply external Modbus Master writes

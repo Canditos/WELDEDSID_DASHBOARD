@@ -74,7 +74,23 @@ async function main() {
         ssid: "Preview_Network",
         status: 3,
         ip: "192.168.0.222",
-        rssi: -48
+        rssi: -48,
+        mode: 2
+      })
+    });
+  });
+
+  await page.route("**/api/health", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        wifiConnected: true,
+        wifiMode: 2,
+        wifiIp: "192.168.0.222",
+        mqttConnected: true,
+        modbusHealthy: true,
+        heap: 182344
       })
     });
   });
@@ -147,6 +163,7 @@ async function main() {
   await page.fill("#login-password", "preview-password");
   await page.click("button:has-text('Authorize')");
   await page.waitForSelector("[data-cy='relay-control-center-title']");
+  await page.waitForTimeout(400);
   await page.screenshot({ path: outputPath, fullPage: true });
 
   await browser.close();

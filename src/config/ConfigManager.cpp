@@ -1,5 +1,6 @@
 #include "ConfigManager.h"
 #include <string.h>
+#include "../security/SecurityHelpers.h"
 
 ConfigManager::ConfigManager() {}
 
@@ -48,26 +49,96 @@ void ConfigManager::saveNetworkConfig(const NetworkConfig& config) {
     prefs.putBool("mqtt_en", config.mqttEnabled);
 }
 
-void ConfigManager::loadSecurityConfig(SecurityConfig& config) {
-    memset(&config, 0, sizeof(SecurityConfig));
+void ConfigManager::resetNetworkConfig() {
+    prefs.remove("wifi_ssid");
+    prefs.remove("wifi_pass");
+    prefs.remove("device_id");
+    prefs.remove("mqtt_host");
+    prefs.remove("mqtt_port");
+    prefs.remove("mqtt_user");
+    prefs.remove("mqtt_pass");
+    prefs.remove("mqtt_en");
+}
 
-    prefs.getString("admin_user", config.adminUser, sizeof(config.adminUser));
-    prefs.getString("admin_pass", config.adminPass, sizeof(config.adminPass));
+void ConfigManager::loadSecurityConfig(SecurityConfig& config) {
+    SecurityHelpers::applyDefaultSecurityConfig(config);
     prefs.getString("ota_pass", config.otaPassword, sizeof(config.otaPassword));
 
-    if (strlen(config.adminUser) == 0) {
-        copyCString(config.adminUser, sizeof(config.adminUser), Config::ADMIN_USER);
+    bool foundNewFormat = false;
+    for (uint8_t i = 0; i < Config::SECURITY_USER_COUNT; ++i) {
+        char key[20];
+
+        snprintf(key, sizeof(key), "user_%u", i);
+        if (prefs.isKey(key)) {
+            prefs.getString(key, config.users[i].username, sizeof(config.users[i].username));
+            foundNewFormat = true;
+        }
+
+        snprintf(key, sizeof(key), "pass_%u", i);
+        if (prefs.isKey(key)) {
+            prefs.getString(key, config.users[i].password, sizeof(config.users[i].password));
+            foundNewFormat = true;
+        }
+
+        snprintf(key, sizeof(key), "enabled_%u", i);
+        if (prefs.isKey(key)) {
+            config.users[i].enabled = prefs.getBool(key, config.users[i].enabled);
+            foundNewFormat = true;
+        }
+
+        snprintf(key, sizeof(key), "role_%u", i);
+        if (prefs.isKey(key)) {
+            config.users[i].role = static_cast<UserRole>(prefs.getUChar(key, static_cast<uint8_t>(config.users[i].role)));
+            foundNewFormat = true;
+        }
     }
 
-    if (strlen(config.adminPass) == 0) {
-        copyCString(config.adminPass, sizeof(config.adminPass), Config::ADMIN_PASS);
+    if (!foundNewFormat) {
+        prefs.getString("admin_user", config.users[0].username, sizeof(config.users[0].username));
+        prefs.getString("admin_pass", config.users[0].password, sizeof(config.users[0].password));
+        config.users[0].role = UserRole::ADMIN;
+        config.users[0].enabled = true;
     }
 }
 
 void ConfigManager::saveSecurityConfig(const SecurityConfig& config) {
-    prefs.putString("admin_user", config.adminUser);
-    prefs.putString("admin_pass", config.adminPass);
+    for (uint8_t i = 0; i < Config::SECURITY_USER_COUNT; ++i) {
+        char key[20];
+
+        snprintf(key, sizeof(key), "user_%u", i);
+        prefs.putString(key, config.users[i].username);
+
+        snprintf(key, sizeof(key), "pass_%u", i);
+        prefs.putString(key, config.users[i].password);
+
+        snprintf(key, sizeof(key), "enabled_%u", i);
+        prefs.putBool(key, config.users[i].enabled);
+
+        snprintf(key, sizeof(key), "role_%u", i);
+        prefs.putUChar(key, static_cast<uint8_t>(config.users[i].role));
+    }
+
+    prefs.remove("admin_user");
+    prefs.remove("admin_pass");
     prefs.putString("ota_pass", config.otaPassword);
+}
+
+void ConfigManager::resetSecurityConfig() {
+    for (uint8_t i = 0; i < Config::SECURITY_USER_COUNT; ++i) {
+        char key[20];
+        snprintf(key, sizeof(key), "user_%u", i);
+        prefs.remove(key);
+        snprintf(key, sizeof(key), "pass_%u", i);
+        prefs.remove(key);
+        snprintf(key, sizeof(key), "enabled_%u", i);
+        prefs.remove(key);
+        snprintf(key, sizeof(key), "role_%u", i);
+        prefs.remove(key);
+    }
+
+    prefs.remove("admin_user");
+    prefs.remove("admin_pass");
+    prefs.remove("ota_pass");
 }
 
 void ConfigManager::loadHardwareState(DeviceState& state) {
@@ -100,4 +171,10 @@ void ConfigManager::saveDACState(uint8_t channel, float voltage) {
     } else if (channel == 2) {
         prefs.putFloat("dac2", voltage);
     }
+}
+
+void ConfigManager::resetHardwareState() {
+    prefs.remove("relays_mask");
+    prefs.remove("dac1");
+    prefs.remove("dac2");
 }

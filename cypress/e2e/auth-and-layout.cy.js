@@ -24,4 +24,30 @@ describe("Dashboard auth and layout", () => {
     cy.get("[data-cy='dac-val-1']").should("have.text", "2.4 V");
     cy.get("[data-cy='dac-val-2']").should("have.text", "6.5 V");
   });
+
+  it("reflects consolidated health and AP fallback state without fake green badges", () => {
+    cy.mountDashboard({
+      wifiStatus: {
+        ssid: "",
+        status: 6,
+        ip: "192.168.4.1",
+        rssi: 0,
+        mode: 4
+      },
+      healthStatus: {
+        wifiConnected: false,
+        wifiMode: 4,
+        wifiIp: "192.168.4.1",
+        mqttConnected: false,
+        modbusHealthy: true,
+        heap: 150000
+      }
+    });
+
+    cy.get("[data-cy='wifi-status-text']").should("contain", "AP Fallback");
+    cy.get("[data-cy='display-ip']").should("contain", "192.168.4.1");
+    cy.get("[data-cy='status-wifi']").should("have.class", "offline");
+    cy.get("[data-cy='status-mqtt']").should("have.class", "offline");
+    cy.get("[data-cy='status-modbus']").should("have.class", "online");
+  });
 });

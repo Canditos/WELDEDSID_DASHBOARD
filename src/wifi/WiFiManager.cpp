@@ -12,12 +12,21 @@ void copyCString(char* dest, size_t destSize, const char* src) {
     strncpy(dest, src, destSize - 1);
     dest[destSize - 1] = '\0';
 }
+
+void resetWiFiRadio(bool keepStoredCredentials = true) {
+    WiFi.scanDelete();
+    WiFi.disconnect(true, !keepStoredCredentials);
+    WiFi.softAPdisconnect(true);
+    delay(100);
+}
 }
 
 WiFiManager::WiFiManager(ConfigManager& configMgr) 
     : config(configMgr), currentMode(WiFiModeState::OFF), isScanning(false) {}
 
 void WiFiManager::begin() {
+    WiFi.persistent(false);
+    WiFi.setSleep(false);
     config.loadNetworkConfig(netConfig);
     
     if (strlen(netConfig.ssid) == 0) {
@@ -57,6 +66,7 @@ void WiFiManager::loop() {
 
 void WiFiManager::startSTA() {
     Serial.printf("Connecting to %s...\n", netConfig.ssid);
+    resetWiFiRadio();
     WiFi.mode(WIFI_STA);
     WiFi.begin(netConfig.ssid, netConfig.pass);
     currentMode = WiFiModeState::STA_CONNECTING;
@@ -65,7 +75,8 @@ void WiFiManager::startSTA() {
 
 void WiFiManager::startAP() {
     Serial.printf("Starting AP: %s\n", Config::DEFAULT_AP_SSID);
-    WiFi.mode(WIFI_AP_STA); // AP_STA to allow background scanning
+    resetWiFiRadio();
+    WiFi.mode(WIFI_AP);
     bool success = WiFi.softAP(Config::DEFAULT_AP_SSID);
     if (success) {
         Serial.print("AP Started. IP: ");
@@ -78,11 +89,14 @@ void WiFiManager::startAP() {
 
 void WiFiManager::handleSTAFailure() {
     Serial.println("STA Connection Failed. Falling back to AP.");
-    WiFi.mode(WIFI_AP_STA); // Keep STA scan possible while in AP mode
+    resetWiFiRadio();
+    WiFi.mode(WIFI_AP);
     bool success = WiFi.softAP(Config::DEFAULT_AP_SSID);
     if (success) {
         Serial.print("Fallback AP Started. IP: ");
         Serial.println(WiFi.softAPIP());
+    } else {
+        Serial.println("Fallback AP Failed to start!");
     }
     currentMode = WiFiModeState::STA_FAILED_AP_FALLBACK;
 }

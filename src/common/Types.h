@@ -1,5 +1,7 @@
 #pragma once
-#include <Arduino.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 enum class WiFiModeState {
     OFF,
@@ -18,6 +20,19 @@ struct DeviceState {
     char ipAddress[16];
 };
 
+enum class UserRole : uint8_t {
+    VIEWER = 0,
+    OPERATOR = 1,
+    ADMIN = 2
+};
+
+struct SecurityUser {
+    char username[33];
+    char password[64];
+    UserRole role;
+    bool enabled;
+};
+
 struct NetworkConfig {
     char ssid[33];
     char pass[64];
@@ -30,7 +45,6 @@ struct NetworkConfig {
 };
 
 struct SecurityConfig {
-    char adminUser[33];
-    char adminPass[64];
+    SecurityUser users[3];
     char otaPassword[64];
 };

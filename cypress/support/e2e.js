@@ -5,7 +5,9 @@ const DEFAULT_STATE = {
   v2: 6.5,
   mqtt: true,
   modbus: true,
-  wifiMode: 2
+  wifiMode: 2,
+  role: "admin",
+  username: "admin"
 };
 
 function buildMockWebSocket(initialState, ownerWindow) {
@@ -34,7 +36,7 @@ function buildMockWebSocket(initialState, ownerWindow) {
 
       if (data.cmd === "auth") {
         setTimeout(() => {
-          this.onmessage && this.onmessage({ data: JSON.stringify({ type: "auth", ok: true }) });
+          this.onmessage && this.onmessage({ data: JSON.stringify({ type: "auth", ok: true, role: currentState.role, username: currentState.username }) });
           this.onmessage && this.onmessage({ data: JSON.stringify(currentState) });
         }, 20);
         return;
@@ -120,24 +122,37 @@ Cypress.Commands.add("mountDashboard", (options = {}) => {
     ssid: "Preview_Network",
     status: 3,
     ip: "192.168.0.222",
-    rssi: -48
+    rssi: -48,
+    mode: 2
+  };
+  const healthStatus = options.healthStatus || {
+    wifiConnected: true,
+    wifiMode: 2,
+    wifiIp: "192.168.0.222",
+    mqttConnected: true,
+    modbusHealthy: true,
+    heap: 182344
   };
   const securityStatus = options.securityStatus || {
-    adminUser: "admin",
-    hasOtaPassword: true,
-    usingDefaultPassword: false
+    users: [
+      { role: "admin", username: "admin", enabled: true, usingDefault: false },
+      { role: "operator", username: "operator", enabled: true, usingDefault: false },
+      { role: "viewer", username: "viewer", enabled: true, usingDefault: false }
+    ],
+    hasOtaPassword: true
   };
   const wifiScan = options.wifiScan || [
     { ssid: "Preview_Network", rssi: -48, secure: true },
     { ssid: "Workshop_AP", rssi: -61, secure: false }
   ];
 
-  cy.intercept("GET", "/api/ws-auth", { statusCode: 200, body: { token: "preview-token" } }).as("wsAuth");
+  cy.intercept("GET", "/api/ws-auth", { statusCode: 200, body: { token: "preview-token", role: "admin", username: "admin" } }).as("wsAuth");
   cy.intercept("GET", "/api/wifi/status", { statusCode: 200, body: wifiStatus }).as("wifiStatus");
+  cy.intercept("GET", "/api/health", { statusCode: 200, body: healthStatus }).as("healthStatus");
   cy.intercept("GET", "/api/security/status", { statusCode: 200, body: securityStatus }).as("securityStatus");
   cy.intercept("POST", "/api/wifi/startScan", { statusCode: 200, body: { status: "scanning" } }).as("startScan");
   cy.intercept("GET", "/api/wifi/scan", { statusCode: 200, body: wifiScan }).as("wifiScan");
-  cy.intercept("POST", "/api/security/passwords", (req) => {
+  cy.intercept("POST", "/api/security/users", (req) => {
     req.reply({ statusCode: 200, body: { status: "ok" } });
   }).as("securitySave");
   cy.intercept("POST", "/api/wifi/save", (req) => {
@@ -156,6 +171,8 @@ Cypress.Commands.add("mountDashboard", (options = {}) => {
   cy.contains("button", "Authorize").click();
   cy.wait("@wsAuth");
   cy.wait("@wifiStatus");
+  cy.wait("@healthStatus");
   cy.wait("@securityStatus");
   cy.get("[data-cy='relay-control-center-title']").should("be.visible");
+  cy.get("#ws-mode-chip").should("contain.text", "WS: LIVE");
 });

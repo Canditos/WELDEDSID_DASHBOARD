@@ -18,7 +18,7 @@ describe("Relay controls", () => {
     cy.window().then((win) => {
       win.__wsMessages = win.__wsMessages.filter((msg) => msg.cmd === "auth");
     });
-    cy.get("[data-cy='reset-all-relays-btn']").click();
+    cy.get("[data-cy='reset-all-relays-btn']").click({ force: true });
     cy.window().its("__wsMessages").should((messages) => {
       expect(messages.some((msg) => msg.cmd === "relay_mask" && msg.mask === 0)).to.equal(true);
     });

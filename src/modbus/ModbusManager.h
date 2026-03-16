@@ -8,10 +8,12 @@ public:
     ModbusManager(HardwareHAL& hal);
     void begin();
     void loop();
+    bool isHealthy() const { return started; }
 
 private:
     HardwareHAL& hardware;
     ModbusIP mb;
+    bool started = false;
     
     bool lastRelayStates[8];
     uint16_t lastDACStates[2];

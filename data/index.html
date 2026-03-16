@@ -8,15 +8,25 @@
 </head>
 <body>
     <div id="login-overlay">
-        <div class="login-card">
-            <img src="/charger.png" alt="SICHARGE D" class="login-img">
-            <div class="login-title">Secure Login</div>
-            <form class="login-form" id="login-form">
-                <input type="text" id="login-username" class="login-input" placeholder="Username" value="admin" required>
-                <input type="password" id="login-password" class="login-input" placeholder="Password" required>
-                <button type="submit" class="login-btn">Authorize</button>
-            </form>
-            <div id="login-error" class="error-text">Invalid credentials</div>
+        <div class="login-shell">
+            <div class="login-brand-panel">
+                <div class="login-brand-mark">SIEMENS</div>
+                <div class="login-brand-subtitle">SICHARGE D CONTROL ACCESS</div>
+            </div>
+            <div class="login-card">
+                <div class="login-title">Secure Login</div>
+                <div class="login-copy">Use your dashboard credentials to access the controller.</div>
+                <form class="login-form" id="login-form">
+                    <input type="text" id="login-username" class="login-input" placeholder="Username" value="admin" required>
+                    <input type="password" id="login-password" class="login-input" placeholder="Password" required>
+                    <button type="submit" class="login-btn">Authorize</button>
+                </form>
+                <div id="login-error" class="error-text">Invalid credentials</div>
+                <div class="login-credits">
+                    <div>&copy; 2026 SIEMENS AG | SICHARGE D Monitor v1.6</div>
+                    <div>Connected via WebSocket | @Canditos</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -39,11 +49,43 @@
                     <div class="status-badge offline" id="badge-modbus" data-cy="status-modbus"><span class="status-dot"></span>MODBUS</div>
                 </div>
                 <div class="topbar-meta">
-                    <div class="status-ip" id="display-ip" data-cy="display-ip">Connected IP: ---.---.---.---</div>
+                    <div class="mode-row">
+                        <div class="mode-chip" id="wifi-mode-chip">WIFI MODE: OFFLINE</div>
+                        <div class="mode-chip" id="mqtt-mode-chip">MQTT: WAITING</div>
+                        <div class="mode-chip" id="modbus-mode-chip">MODBUS: READY</div>
+                        <div class="mode-chip" id="ws-mode-chip">WS: IDLE</div>
+                    </div>
+                    <div class="access-row">
+                        <div class="status-ip" id="display-ip" data-cy="display-ip">View: ---.---.---.--- | Device: ---.---.---.---</div>
+                        <a class="status-link" id="device-open-link" href="#" target="_blank" rel="noreferrer" hidden>OPEN DEVICE</a>
+                    </div>
                     <button class="ghost-btn" id="logout-btn" data-cy="logout-btn">LOGOUT</button>
                 </div>
             </div>
         </header>
+
+        <section class="ops-strip">
+            <article class="ops-card" id="ops-network-card">
+                <span class="ops-label">NETWORK</span>
+                <strong id="ops-network-value">Awaiting login</strong>
+                <span class="ops-meta" id="ops-network-meta">No controller state loaded</span>
+            </article>
+            <article class="ops-card" id="ops-command-card">
+                <span class="ops-label">COMMAND BUS</span>
+                <strong id="ops-command-value">Standby</strong>
+                <span class="ops-meta" id="ops-command-meta">WebSocket idle</span>
+            </article>
+            <article class="ops-card" id="ops-relay-card">
+                <span class="ops-label">ACTIVE OUTPUTS</span>
+                <strong id="ops-relay-value">0 / 8</strong>
+                <span class="ops-meta" id="ops-relay-meta">Relays currently energized</span>
+            </article>
+            <article class="ops-card" id="ops-dac-card">
+                <span class="ops-label">ANALOG PROFILE</span>
+                <strong id="ops-dac-value">2.0 V / 4.0 V</strong>
+                <span class="ops-meta" id="ops-dac-meta">TF Voltage and Dispenser Temp</span>
+            </article>
+        </section>
 
         <main class="dashboard-shell">
             <aside class="sidebar">
@@ -68,12 +110,32 @@
                                 <button class="primary-btn" id="save-connect-btn" data-cy="save-connect-btn">SAVE &amp; CONNECT</button>
                             </div>
                             <div class="security-divider"></div>
-                            <div class="field-stack">
-                                <input type="text" id="security-admin-user" class="login-input" placeholder="Admin username">
-                                <input type="password" id="security-admin-pass" class="login-input" placeholder="New admin password (min 8 chars)">
-                                <input type="password" id="security-ota-pass" class="login-input" placeholder="OTA password">
-                                <button class="primary-btn secondary-fill" id="save-security-btn">UPDATE CREDENTIALS</button>
+                            <div class="security-grid">
+                                <div class="security-role-card">
+                                    <div class="security-role-title">ADMIN</div>
+                                    <input type="text" id="security-admin-user" class="login-input" placeholder="Admin username">
+                                    <input type="password" id="security-admin-pass" class="login-input" placeholder="Admin password (min 8 chars)">
+                                </div>
+                                <div class="security-role-card">
+                                    <label class="security-role-toggle"><input type="checkbox" id="security-operator-enabled" checked> OPERATOR</label>
+                                    <input type="text" id="security-operator-user" class="login-input" placeholder="Operator username">
+                                    <input type="password" id="security-operator-pass" class="login-input" placeholder="Operator password (min 8 chars)">
+                                </div>
+                                <div class="security-role-card">
+                                    <label class="security-role-toggle"><input type="checkbox" id="security-viewer-enabled" checked> VIEWER</label>
+                                    <input type="text" id="security-viewer-user" class="login-input" placeholder="Viewer username">
+                                    <input type="password" id="security-viewer-pass" class="login-input" placeholder="Viewer password (min 8 chars)">
+                                </div>
                             </div>
+                            <input type="password" id="security-ota-pass" class="login-input" placeholder="OTA password">
+                            <div class="config-actions-grid">
+                                <button class="primary-btn secondary-fill" id="save-security-btn">SAVE USERS</button>
+                                <button class="small-btn accent-btn" id="export-config-btn">EXPORT CONFIG</button>
+                                <button class="small-btn accent-btn" id="import-config-btn">IMPORT CONFIG</button>
+                                <button class="small-btn danger-btn" id="reset-network-config-btn">RESET NETWORK</button>
+                                <button class="small-btn danger-btn" id="reset-all-config-btn">RESET ALL CONFIG</button>
+                            </div>
+                            <input type="file" id="import-config-file" accept="application/json" hidden>
                             <p class="helper-text" id="security-status-text">Credentials loaded.</p>
                         </div>
                     </article>
@@ -83,27 +145,39 @@
                     <div class="section-heading section-heading-with-actions">
                         <span>SYSTEM EVENT LOG</span>
                         <div class="section-actions">
+                            <div class="log-filter-row" id="log-filter-row">
+                                <button class="log-filter-btn active" type="button" data-filter="ALL">ALL</button>
+                                <button class="log-filter-btn" type="button" data-filter="AUTH">AUTH</button>
+                                <button class="log-filter-btn" type="button" data-filter="NET">NET</button>
+                                <button class="log-filter-btn" type="button" data-filter="DAC">DAC</button>
+                                <button class="log-filter-btn" type="button" data-filter="RELAY">RELAY</button>
+                            </div>
                             <button class="small-btn danger-btn" id="clear-logs-btn" data-cy="clear-logs-btn">CLEAR</button>
                             <button class="small-btn accent-btn" id="download-logs-btn">EXPORT</button>
                         </div>
                     </div>
                     <div class="log-panel">
                         <div class="log-container" id="log-container" data-cy="log-container"></div>
+                        <div class="log-pagination">
+                            <button class="small-btn ghost-btn" type="button" id="log-prev-btn">PREV</button>
+                            <span class="log-page-status" id="log-page-status">PAGE 1 / 1</span>
+                            <button class="small-btn ghost-btn" type="button" id="log-next-btn">NEXT</button>
+                        </div>
                     </div>
                 </section>
             </aside>
 
             <section class="content">
                 <section class="panel-section">
-                    <div class="section-heading section-heading-with-actions" data-cy="relay-control-center-title">
+                    <div class="section-heading section-heading-with-actions relay-heading" data-cy="relay-control-center-title">
                         <span>RELAY CONTROL CENTER</span>
-                        <button class="small-btn danger-btn" id="reset-all-relays-btn" data-cy="reset-all-relays-btn">RESET ALL RELAYS</button>
+                        <button class="small-btn danger-btn reset-btn" id="reset-all-relays-btn" data-cy="reset-all-relays-btn">RESET ALL RELAYS</button>
                     </div>
                     <div class="relay-shell">
                         <article class="relay-group relay-group-wide" data-cy="relay-group-1">
                             <div class="relay-group-header">
                                 <span class="relay-group-title">GROUP 1: FEEDBACK RELAY</span>
-                                <button class="small-btn danger-btn" id="reset-group-1-btn" data-cy="reset-group-1-btn">RESET GROUP</button>
+                                <button class="small-btn danger-btn reset-btn" id="reset-group-1-btn" data-cy="reset-group-1-btn">RESET GROUP</button>
                             </div>
                             <div class="relay-grid relay-grid-four">
                                 <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-0-header"><span>R1</span></div><button class="relay-btn" id="btn-r0" data-cy="relay-btn-0">DC1 FB</button></div>
@@ -117,7 +191,7 @@
                             <article class="relay-group" data-cy="relay-group-2">
                                 <div class="relay-group-header">
                                     <span class="relay-group-title">GROUP 2: 24V DC</span>
-                                    <button class="small-btn danger-btn" id="reset-group-2-btn" data-cy="reset-group-2-btn">RST</button>
+                                    <button class="small-btn danger-btn reset-btn" id="reset-group-2-btn" data-cy="reset-group-2-btn">RESET GROUP</button>
                                 </div>
                                 <div class="relay-grid">
                                     <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-4-header"><span>R5</span></div><button class="relay-btn" id="btn-r4" data-cy="relay-btn-4">DC1 24V</button></div>
@@ -128,7 +202,7 @@
                             <article class="relay-group" data-cy="relay-group-3">
                                 <div class="relay-group-header">
                                     <span class="relay-group-title">GROUP 3: MAIN</span>
-                                    <button class="small-btn danger-btn" id="reset-group-3-btn" data-cy="reset-group-3-btn">RST</button>
+                                    <button class="small-btn danger-btn reset-btn" id="reset-group-3-btn" data-cy="reset-group-3-btn">RESET GROUP</button>
                                 </div>
                                 <div class="relay-grid">
                                     <div class="relay-btn-wrap"><div class="relay-item-header" data-cy="relay-6-header"><span>R7</span></div><button class="relay-btn" id="btn-r6" data-cy="relay-btn-6">MG1 FB</button></div>
@@ -148,12 +222,21 @@
                                     <div class="relay-group-title" data-cy="dac-1-title">TF VOLTAGE</div>
                                     <div class="helper-text dac-range-text" data-cy="dac-1-range">(Range: 2.0 - 3.0V)</div>
                                 </div>
-                                <button class="small-btn danger-btn" id="reset-dac-1-btn" data-cy="reset-dac-1-btn">RESET</button>
+                                <div class="dac-header-actions">
+                                    <span class="control-chip" id="dac-chip-1">READY</span>
+                                    <button class="small-btn danger-btn" id="reset-dac-1-btn" data-cy="reset-dac-1-btn">RESET</button>
+                                </div>
                             </div>
                             <div class="dac-val-display" id="val-dac1" data-cy="dac-val-1">2.0 V</div>
+                            <div class="dac-footnote">Nominal TF analog setpoint</div>
                             <div class="dac-input-row">
                                 <input type="range" id="range-dac1" min="2.0" max="3.0" step="0.1" value="2.0" data-cy="dac-range-1">
                                 <input type="number" id="num-dac1" class="dac-num-input" min="2.0" max="3.0" step="0.1" value="2.0" data-cy="dac-num-1">
+                            </div>
+                            <div class="dac-preset-row">
+                                <button class="preset-btn" type="button" data-dac-preset="1" data-value="2.0">DEFAULT</button>
+                                <button class="preset-btn" type="button" data-dac-preset="1" data-value="2.5">MID</button>
+                                <button class="preset-btn" type="button" data-dac-preset="1" data-value="3.0">MAX</button>
                             </div>
                         </article>
 
@@ -163,25 +246,32 @@
                                     <div class="relay-group-title" data-cy="dac-2-title">DISPENSER TEMP</div>
                                     <div class="helper-text dac-range-text" data-cy="dac-2-range">(Range: 4.0 - 9.0V)</div>
                                 </div>
-                                <button class="small-btn danger-btn" id="reset-dac-2-btn" data-cy="reset-dac-2-btn">RESET</button>
+                                <div class="dac-header-actions">
+                                    <span class="control-chip" id="dac-chip-2">READY</span>
+                                    <button class="small-btn danger-btn" id="reset-dac-2-btn" data-cy="reset-dac-2-btn">RESET</button>
+                                </div>
                             </div>
                             <div class="dac-val-display" id="val-dac2" data-cy="dac-val-2">4.0 V</div>
+                            <div class="dac-footnote">Primary dispenser temperature channel</div>
                             <div class="dac-input-row">
                                 <input type="range" id="range-dac2" min="4.0" max="9.0" step="0.1" value="4.0" data-cy="dac-range-2">
                                 <input type="number" id="num-dac2" class="dac-num-input" min="4.0" max="9.0" step="0.1" value="4.0" data-cy="dac-num-2">
                             </div>
-                            <button class="program-btn" id="execute-stepwise-btn" data-cy="execute-stepwise-btn">EXECUTE STEPWISE PROGRAM (4V-9V)</button>
+                            <div class="dac-preset-row">
+                                <button class="preset-btn" type="button" data-dac-preset="2" data-value="4.0">DEFAULT</button>
+                                <button class="preset-btn" type="button" data-dac-preset="2" data-value="6.5">MID</button>
+                                <button class="preset-btn" type="button" data-dac-preset="2" data-value="9.0">MAX</button>
+                            </div>
+                            <button class="program-btn" id="execute-stepwise-btn" data-cy="execute-stepwise-btn">DISPENSER TEMP STEP (4V-9V)</button>
                         </article>
                     </div>
                 </section>
             </section>
         </main>
 
-        <footer class="footer">
-            <div>&copy; 2026 SIEMENS AG | SICHARGE D Monitor v1.6</div>
-            <div>Connected via WebSocket | @Canditos</div>
-        </footer>
     </div>
+
+    <div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
     <script src="/app.js"></script>
 </body>

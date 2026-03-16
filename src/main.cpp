@@ -13,7 +13,7 @@ HardwareHAL hardware(configMgr);
 WiFiManager wifiMgr(configMgr);
 MQTTManager mqttMgr(configMgr, hardware);
 ModbusManager modbusMgr(hardware);
-AppServer appServer(configMgr, hardware, wifiMgr, mqttMgr);
+AppServer appServer(configMgr, hardware, wifiMgr, mqttMgr, modbusMgr);
 OTAManager otaMgr;
 
 void setup() {
