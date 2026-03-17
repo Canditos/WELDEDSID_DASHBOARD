@@ -173,8 +173,8 @@ function updateAccessLocation(deviceIp) {
 
 function updateOpsSnapshot() {
     const activeRelays = relayStates.filter((state) => state === true).length;
-    const dac1 = dacValues[0] ?? "2.0";
-    const dac2 = dacValues[1] ?? "4.0";
+    const dac1 = dacValues[0] ?? "0.0";
+    const dac2 = dacValues[1] ?? "0.0";
 
     document.getElementById("ops-relay-value").innerText = `${activeRelays} / 8`;
     document.getElementById("ops-relay-meta").innerText = activeRelays > 0 ? "Relays currently energized" : "All relay outputs idle";
@@ -335,7 +335,7 @@ function setProgramRunning(running) {
     const button = document.getElementById("execute-stepwise-btn");
     if (!button) return;
     button.classList.toggle("running", running);
-    button.innerText = running ? "DISPENSER TEMP STEP RUNNING" : "DISPENSER TEMP STEP (4V-9V)";
+    button.innerText = running ? "DISPENSER TEMP STEP RUNNING" : "DISPENSER TEMP STEP (0V-10V)";
     setChipState(document.getElementById("dac-chip-2"), running ? "STEP ACTIVE" : "READY", running ? "warn" : "live");
 }
 
@@ -574,8 +574,8 @@ function resetAllRelays() {
 
 function syncDAC(channel, value, source) {
     let nextValue = parseFloat(value);
-    const min = channel === 1 ? 2.0 : 4.0;
-    const max = channel === 1 ? 3.0 : 9.0;
+    const min = 0.0;
+    const max = 10.0;
     if (Number.isNaN(nextValue)) return;
 
     nextValue = Math.min(Math.max(nextValue, min), max);
@@ -592,7 +592,7 @@ function syncDAC(channel, value, source) {
 }
 
 function resetDAC(channel) {
-    syncDAC(channel, channel === 1 ? 2.0 : 4.0, "reset");
+    syncDAC(channel, 0.0, "reset");
 }
 
 function startAutoProgram(channel) {
@@ -605,8 +605,8 @@ function startAutoProgram(channel) {
     sendWsCommand({
         cmd: "step_ramp",
         channel,
-        start: 4.0,
-        target: 9.0,
+        start: 0.0,
+        target: 10.0,
         step: 0.5,
         duration: 5000
     });

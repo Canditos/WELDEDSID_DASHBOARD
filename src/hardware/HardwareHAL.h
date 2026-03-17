@@ -50,6 +50,6 @@ private:
         uint32_t lastStepTime = 0;
     } prog;
     
-    void writeGP8403(uint8_t channel, uint16_t value);
-    uint16_t voltageToDAC(float voltage);
+    void writeGP8413(uint8_t channel, uint16_t value);
+    uint16_t voltageToDAC(uint8_t channel, float voltage);
 };

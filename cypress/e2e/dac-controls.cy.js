@@ -22,9 +22,9 @@ describe("DAC controls", () => {
     });
     cy.get("[data-cy='reset-dac-1-btn']").click();
     cy.wait(100);
-    cy.get("[data-cy='dac-val-1']").should("have.text", "2.0 V");
+    cy.get("[data-cy='dac-val-1']").should("have.text", "0.0 V");
     cy.window().its("__wsMessages").should((messages) => {
-      expect(messages.some((msg) => msg.cmd === "dac" && msg.channel === 1 && msg.voltage === 2)).to.equal(true);
+      expect(messages.some((msg) => msg.cmd === "dac" && msg.channel === 1 && msg.voltage === 0)).to.equal(true);
     });
   });
 

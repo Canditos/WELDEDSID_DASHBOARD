@@ -15,7 +15,7 @@ flowchart TB
     ESP --> R6["GPIO5 -> R6 / DC2 24V"]
     ESP --> R7["GPIO17 -> R7 / MG1 FB"]
     ESP --> R8["GPIO16 -> R8 / MG2 FB"]
-    ESP --> I2C["I2C GP8403"]
+    ESP --> I2C["I2C GP8413"]
     I2C --> SDA["GPIO21 -> SDA"]
     I2C --> SCL["GPIO22 -> SCL"]
     ESP --> ADC1["GPIO34 -> ADC1"]
@@ -39,7 +39,7 @@ flowchart TB
 
 | Function | Value |
 | --- | --- |
-| DAC device | GP8403 |
+| DAC device | GP8413 |
 | I2C address | `0x58` |
 | SDA | GPIO21 |
 | SCL | GPIO22 |
@@ -58,7 +58,7 @@ flowchart TB
 ## Commissioning Checklist
 
 - Confirm relay driver polarity before energizing outputs.
-- Confirm the GP8403 supply and reference path before writing voltages.
+- Confirm the GP8413 supply and reference path before writing voltages.
 - Validate DAC output ranges with a meter on first boot.
 - Change default credentials before connecting the controller to a wider LAN.
 - Upload both firmware and SPIFFS content during commissioning.

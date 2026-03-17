@@ -82,8 +82,8 @@ void HardwareHAL::setDAC(uint8_t channel, float voltage) {
         return;
     }
     
-    uint16_t dacVal = voltageToDAC(voltage);
-    writeGP8403(channel - 1, dacVal); // GP8403 uses 0-indexed channels internally
+    uint16_t dacVal = voltageToDAC(channel, voltage);
+    writeGP8413(channel - 1, dacVal); // GP8413 uses 0-indexed channels internally
     
     // Only save to NVS if no ramp is active for this channel to prevent NVS wear/lag
     if (!ramps[channel-1].active) {
@@ -107,8 +107,8 @@ float HardwareHAL::readADC(uint8_t channel) {
 const DeviceState& HardwareHAL::getState() const { return state; }
 bool HardwareHAL::hasStateChanged() { if(_changed) { _changed = false; return true; } return false; }
 
-void HardwareHAL::writeGP8403(uint8_t channel, uint16_t value) {
-    // GP8403 Protocol: [Addr] [Reg] [DataL] [DataH]
+void HardwareHAL::writeGP8413(uint8_t channel, uint16_t value) {
+    // GP8413 Protocol: [Addr] [Reg] [DataL] [DataH]
     // Reg for Output 0: 0x02, Output 1: 0x04
     uint8_t reg = (channel == 0) ? 0x02 : 0x04;
     
@@ -119,10 +119,12 @@ void HardwareHAL::writeGP8403(uint8_t channel, uint16_t value) {
     Wire.endTransmission();
 }
 
-uint16_t HardwareHAL::voltageToDAC(float voltage) {
-    // Internal conversion formula: uint16_t dacValue = (voltage / 10.0) * 4095;
-    float val = (voltage / 10.0f) * 4095.0f;
-    if (val > 4095) val = 4095;
+uint16_t HardwareHAL::voltageToDAC(uint8_t channel, float voltage) {
+    const float maxV = (channel == 1) ? Config::DAC1_MAX_V : Config::DAC2_MAX_V;
+    if (maxV <= 0.0f) return 0;
+    // GP8413 is 15-bit (0-32767)
+    float val = (voltage / maxV) * 32767.0f;
+    if (val > 32767.0f) val = 32767.0f;
     if (val < 0) val = 0;
     return (uint16_t)val;
 }

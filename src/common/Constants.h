@@ -13,16 +13,16 @@ namespace Config {
     const uint8_t RELAY_PINS[] = {23, 32, 33, 19, 18, 5, 17, 16};
     const uint8_t RELAY_COUNT = 8;
 
-    // Hardware Configuration - DAC (GP8403)
+    // Hardware Configuration - DAC (GP8413)
     const uint8_t DAC_I2C_ADDR = 0x58;
     const uint8_t SDA_PIN = 21;
     const uint8_t SCL_PIN = 22;
 
-    // DAC Voltage Constraints
-    const float DAC1_MIN_V = 2.0f;
-    const float DAC1_MAX_V = 3.0f;
-    const float DAC2_MIN_V = 4.0f;
-    const float DAC2_MAX_V = 9.0f;
+    // DAC Voltage Constraints (GP8413: 0-10V range when module is in 0-10V mode)
+    const float DAC1_MIN_V = 0.0f;
+    const float DAC1_MAX_V = 10.0f;
+    const float DAC2_MIN_V = 0.0f;
+    const float DAC2_MAX_V = 10.0f;
 
     // Hardware Configuration - ADC
     const uint8_t ADC1_PIN = 34;
