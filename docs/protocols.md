@@ -38,6 +38,7 @@ Current commands:
 | `relay_mask` | Set relays from bitmask |
 | `dac` | Set DAC channel voltage |
 | `ramp` | Start a timed DAC ramp |
+| `stop_ramp` | Stop a running ramp or step program |
 | `step_ramp` | Start the stepwise DAC program |
 
 The server sends:

@@ -611,6 +611,10 @@ void AppServer::handleWebSocketMessage(uint8_t num, uint8_t* payload, size_t len
         uint32_t duration = doc["duration"];
         if (duration == 0) return;
         hardware.startRamp(channel, target, duration);
+    } else if (strcmp(cmd, "stop_ramp") == 0) {
+        int channel = doc["channel"];
+        if (!hasValidDacChannel(channel)) return;
+        hardware.stopRamp(channel);
     } else if (strcmp(cmd, "step_ramp") == 0) {
         int channel = doc["channel"];
         if (!hasValidDacChannel(channel)) return;

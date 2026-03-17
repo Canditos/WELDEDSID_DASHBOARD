@@ -22,6 +22,7 @@ const dacSendTimers = {};
 const relayPendingTimers = {};
 const dacPendingTimers = {};
 let programRunningTimer = null;
+let programRunning = false;
 let networkPanelOpen = false;
 let commandStateTimer = null;
 let lastReportedDeviceIp = "";
@@ -334,8 +335,9 @@ function setDacPending(channel, pending) {
 function setProgramRunning(running) {
     const button = document.getElementById("execute-stepwise-btn");
     if (!button) return;
+    programRunning = running;
     button.classList.toggle("running", running);
-    button.innerText = running ? "DISPENSER TEMP STEP RUNNING" : "DISPENSER TEMP STEP (0V-10V)";
+    button.innerText = running ? "STOP DISPENSER TEMP STEP" : "DISPENSER TEMP STEP (0V-10V)";
     setChipState(document.getElementById("dac-chip-2"), running ? "STEP ACTIVE" : "READY", running ? "warn" : "live");
 }
 
@@ -601,15 +603,40 @@ function startAutoProgram(channel) {
     setProgramRunning(true);
     setCommandState("Program Active", "Dispenser Temp step profile running", "warn");
     showToast("Program started", "Dispenser Temp STEP is now running.", "info");
-    programRunningTimer = setTimeout(() => setProgramRunning(false), 5500);
+    const start = 0.0;
+    const target = 10.0;
+    const step = 0.5;
+    const duration = 5000;
+    const totalDurationMs = Math.ceil(Math.abs(target - start) / step) * duration + 500;
+    programRunningTimer = setTimeout(() => setProgramRunning(false), totalDurationMs);
     sendWsCommand({
         cmd: "step_ramp",
         channel,
-        start: 0.0,
-        target: 10.0,
-        step: 0.5,
-        duration: 5000
+        start,
+        target,
+        step,
+        duration
     });
+}
+
+function stopAutoProgram(channel) {
+    addLog("Stopping Dispenser Temp STEP", "INFO");
+    clearTimeout(programRunningTimer);
+    setProgramRunning(false);
+    setCommandState("Program Stopped", "Dispenser Temp step profile stopped", "warn", 2000);
+    showToast("Program stopped", "Dispenser Temp STEP was stopped.", "warn");
+    sendWsCommand({
+        cmd: "stop_ramp",
+        channel
+    });
+}
+
+function toggleAutoProgram(channel) {
+    if (programRunning) {
+        stopAutoProgram(channel);
+    } else {
+        startAutoProgram(channel);
+    }
 }
 
 async function updateWifiStatus() {
@@ -1018,7 +1045,7 @@ document.getElementById("reset-group-2-btn").addEventListener("click", () => res
 document.getElementById("reset-group-3-btn").addEventListener("click", () => resetRelayGroup([6, 7]));
 document.getElementById("reset-dac-1-btn").addEventListener("click", () => resetDAC(1));
 document.getElementById("reset-dac-2-btn").addEventListener("click", () => resetDAC(2));
-document.getElementById("execute-stepwise-btn").addEventListener("click", () => startAutoProgram(2));
+document.getElementById("execute-stepwise-btn").addEventListener("click", () => toggleAutoProgram(2));
 
 for (let i = 0; i < RELAY_NAMES.length; i += 1) {
     document.getElementById(`btn-r${i}`).addEventListener("click", () => toggleRelay(i));

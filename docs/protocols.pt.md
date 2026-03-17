@@ -38,4 +38,5 @@ Comandos atuais:
 | `relay_mask` | Definir reles por bitmask |
 | `dac` | Definir tensao de um canal DAC |
 | `ramp` | Iniciar rampa temporizada de DAC |
+| `stop_ramp` | Parar uma rampa ou programa step em execucao |
 | `step_ramp` | Iniciar programa stepwise de DAC |

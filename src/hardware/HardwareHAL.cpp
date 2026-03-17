@@ -143,6 +143,19 @@ void HardwareHAL::startRamp(uint8_t channel, float targetVoltage, uint32_t durat
     ramps[idx].duration = durationMs;
 }
 
+void HardwareHAL::stopRamp(uint8_t channel) {
+    if (channel < 1 || channel > 2) return;
+    int idx = channel - 1;
+    ramps[idx].active = false;
+
+    if (prog.active && prog.channel == channel) {
+        prog.active = false;
+        Serial.printf("[HAL] AutoProgram Stopped. Resetting to %.1fV\n", prog.startV);
+        setDAC(channel, prog.startV);
+        _changed = true;
+    }
+}
+
 void HardwareHAL::startStepProgram(uint8_t channel, float startV, float targetV, float step, uint32_t stepMs) {
     if (channel < 1 || channel > 2) return;
 

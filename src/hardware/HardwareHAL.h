@@ -17,6 +17,7 @@ public:
     float getDAC(uint8_t channel) const;
     
     void startRamp(uint8_t channel, float targetVoltage, uint32_t durationMs);
+    void stopRamp(uint8_t channel);
     void startStepProgram(uint8_t channel, float startV, float targetV, float step, uint32_t stepMs);
     void loop();
     
