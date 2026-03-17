@@ -1,7 +1,11 @@
 #include "WiFiManager.h"
 #include <ArduinoJson.h>
+#include <ESPmDNS.h>
+#include <ctype.h>
 
 namespace {
+const char* kDefaultMdnsName = "weldedsid";
+
 void copyCString(char* dest, size_t destSize, const char* src) {
     if (destSize == 0) return;
     if (src == nullptr) {
@@ -18,6 +22,16 @@ void resetWiFiRadio(bool keepStoredCredentials = true) {
     WiFi.disconnect(true, !keepStoredCredentials);
     WiFi.softAPdisconnect(true);
     delay(100);
+}
+
+bool isValidMdnsLabel(const char* label) {
+    if (label == nullptr || label[0] == '\0') return false;
+    for (const char* c = label; *c; ++c) {
+        if (!(isalnum(*c) || *c == '-' || *c == '_')) {
+            return false;
+        }
+    }
+    return true;
 }
 }
 
@@ -47,6 +61,7 @@ void WiFiManager::loop() {
                 currentMode = WiFiModeState::STA_CONNECTED;
                 Serial.print("STA Connected. IP: ");
                 Serial.println(WiFi.localIP());
+                startMDNS();
             } else if (millis() - connectionStartTime > Config::WIFI_STA_TIMEOUT_MS) {
                 handleSTAFailure();
             }
@@ -66,6 +81,7 @@ void WiFiManager::loop() {
 
 void WiFiManager::startSTA() {
     Serial.printf("Connecting to %s...\n", netConfig.ssid);
+    stopMDNS();
     resetWiFiRadio();
     WiFi.mode(WIFI_STA);
     WiFi.begin(netConfig.ssid, netConfig.pass);
@@ -75,6 +91,7 @@ void WiFiManager::startSTA() {
 
 void WiFiManager::startAP() {
     Serial.printf("Starting AP: %s\n", Config::DEFAULT_AP_SSID);
+    stopMDNS();
     resetWiFiRadio();
     WiFi.mode(WIFI_AP);
     bool success = WiFi.softAP(Config::DEFAULT_AP_SSID);
@@ -89,6 +106,7 @@ void WiFiManager::startAP() {
 
 void WiFiManager::handleSTAFailure() {
     Serial.println("STA Connection Failed. Falling back to AP.");
+    stopMDNS();
     resetWiFiRadio();
     WiFi.mode(WIFI_AP);
     bool success = WiFi.softAP(Config::DEFAULT_AP_SSID);
@@ -140,4 +158,28 @@ bool WiFiManager::saveCredentials(const char* ssid, const char* pass) {
     
     startSTA();
     return true;
+}
+
+void WiFiManager::startMDNS() {
+    const char* name = isValidMdnsLabel(netConfig.deviceId) ? netConfig.deviceId : kDefaultMdnsName;
+    if (mdnsActive) {
+        MDNS.end();
+        mdnsActive = false;
+    }
+    if (MDNS.begin(name)) {
+        MDNS.addService("http", "tcp", Config::HTTP_PORT);
+        MDNS.addService("ws", "tcp", Config::WS_PORT);
+        mdnsActive = true;
+        Serial.printf("[mDNS] Started: http://%s.local\n", name);
+    } else {
+        Serial.println("[mDNS] Failed to start.");
+    }
+}
+
+void WiFiManager::stopMDNS() {
+    if (mdnsActive) {
+        MDNS.end();
+        mdnsActive = false;
+        Serial.println("[mDNS] Stopped.");
+    }
 }

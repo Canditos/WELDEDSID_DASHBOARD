@@ -24,8 +24,11 @@ private:
     WiFiModeState currentMode;
     uint32_t connectionStartTime;
     bool isScanning;
+    bool mdnsActive = false;
     
     void startSTA();
     void startAP();
     void handleSTAFailure();
+    void startMDNS();
+    void stopMDNS();
 };

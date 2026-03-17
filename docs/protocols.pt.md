@@ -110,3 +110,10 @@ Definir um canal DAC:
 ```json
 { "dac": 2, "value": 7.5 }
 ```
+
+## mDNS (Descoberta de Servico)
+
+Quando o ESP32 liga em Wi-Fi (STA), anuncia um hostname mDNS.
+
+- Formato do URL: `http://{deviceId}.local`
+- Se o device id estiver vazio ou invalido, faz fallback para `http://weldedsid.local`

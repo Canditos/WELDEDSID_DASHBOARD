@@ -111,6 +111,13 @@ Set a DAC channel:
 { "dac": 2, "value": 7.5 }
 ```
 
+## mDNS (Service Discovery)
+
+When the ESP32 connects to Wi-Fi (STA), it advertises an mDNS hostname.
+
+- URL format: `http://{deviceId}.local`
+- If the device id is empty or invalid, it falls back to `http://weldedsid.local`
+
 The server sends:
 - `init` payloads for first full state
 - `update` payloads for incremental or full changes
