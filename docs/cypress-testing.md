@@ -1,5 +1,7 @@
 # Cypress Testing Guide
 
+**Languages:** [English](cypress-testing.md) | [Portugues](cypress-testing.pt.md)
+
 This document explains how Cypress is configured in this project, how the tests are executed, which variables affect execution, how the test harness works, and how to adapt the existing tests when adding new scenarios.
 
 ## Purpose
@@ -137,8 +139,8 @@ The suite starts from a default mocked device state:
 const DEFAULT_STATE = {
   type: "init",
   relays: [true, false, true, false, false, true, false, true],
-  v1: 2.4,
-  v2: 6.5,
+  v1: 0.0,
+  v2: 0.0,
   mqtt: true,
   modbus: true,
   wifiMode: 2
@@ -429,10 +431,10 @@ describe("DAC presets", () => {
   });
 
   it("applies the DISPENSER TEMP mid preset", () => {
-    cy.get("[data-dac-preset='2'][data-value='6.5']").click();
-    cy.get("[data-cy='dac-val-2']").should("have.text", "6.5 V");
+    cy.get("[data-dac-preset='2'][data-value='5.0']").click();
+    cy.get("[data-cy='dac-val-2']").should("have.text", "5.0 V");
     cy.window().its("__wsMessages").should((messages) => {
-      expect(messages.some((msg) => msg.cmd === "dac" && msg.channel === 2 && msg.voltage === 6.5)).to.equal(true);
+      expect(messages.some((msg) => msg.cmd === "dac" && msg.channel === 2 && msg.voltage === 5.0)).to.equal(true);
     });
   });
 });

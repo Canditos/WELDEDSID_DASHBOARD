@@ -1,5 +1,7 @@
 # Apresentacao do Projeto WELDEDSID_DASHBOARD
 
+**Idiomas:** [Portugues](apresentacao-projeto.md) | [English](apresentacao-projeto.en.md)
+
 ## Objetivo
 
 O projeto `WELDEDSID_DASHBOARD` implementa um painel de controlo industrial baseado em `ESP32`, com uma dashboard web embebida no proprio dispositivo. O sistema foi pensado para monitorizar e comandar saidas digitais e canais analogicos de forma simples, visual e segura.
@@ -43,8 +45,8 @@ A dashboard permite:
 ### 2. Controlo Analogico por DAC
 
 O projeto inclui `2 canais DAC`:
-- `TF Voltage` com gama de `2.0V a 3.0V`
-- `Dispenser Temp` com gama de `4.0V a 9.0V`
+- `TF Voltage` com gama de `0.0V a 10.0V`
+- `Dispenser Temp` com gama de `0.0V a 10.0V`
 
 A dashboard permite:
 - ajustar o valor por slider

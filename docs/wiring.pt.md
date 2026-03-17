@@ -1,10 +1,10 @@
-# Wiring Notes
+# Notas de Ligacao
 
-**Languages:** [English](wiring.md) | [Portugues](wiring.pt.md)
+**Idiomas:** [Portugues](wiring.pt.md) | [English](wiring.md)
 
-This document summarizes the current pin allocation exposed by the firmware.
+Este documento resume o mapeamento de pinos atual exposto pelo firmware.
 
-## Visual GPIO Map
+## Mapa Visual de GPIO
 
 ```mermaid
 flowchart TB
@@ -24,9 +24,9 @@ flowchart TB
     ESP --> ADC2["GPIO35 -> ADC2"]
 ```
 
-## Relay Outputs
+## Saidas de Reles
 
-| Relay | Label | GPIO |
+| Rele | Label | GPIO |
 | --- | --- | --- |
 | R1 | DC1 FB | GPIO23 |
 | R2 | DC2 FB | GPIO32 |
@@ -37,9 +37,9 @@ flowchart TB
 | R7 | MG1 FB | GPIO17 |
 | R8 | MG2 FB | GPIO16 |
 
-## DAC and Analog
+## DAC e Analogico
 
-| Function | Value |
+| Funcao | Valor |
 | --- | --- |
 | DAC device | GP8413 |
 | I2C address | `0x58` |
@@ -48,19 +48,19 @@ flowchart TB
 | ADC1 | GPIO34 |
 | ADC2 | GPIO35 |
 
-## Network and Service Ports
+## Portas de Rede e Servicos
 
-| Service | Port |
+| Servico | Porta |
 | --- | --- |
 | HTTP dashboard | `80` |
 | WebSocket | `81` |
 | MQTT | `1883` |
 | Modbus TCP | `502` |
 
-## Commissioning Checklist
+## Checklist de Comissionamento
 
-- Confirm relay driver polarity before energizing outputs.
-- Confirm the GP8413 supply and reference path before writing voltages.
-- Validate DAC output ranges with a meter on first boot.
-- Change default credentials before connecting the controller to a wider LAN.
-- Upload both firmware and SPIFFS content during commissioning.
+- Confirmar polaridade dos drivers de rele antes de energizar as saidas.
+- Confirmar alimentacao e referencia do GP8413 antes de escrever tensoes.
+- Validar gamas de saida DAC com multimetro no primeiro arranque.
+- Alterar credenciais por defeito antes de ligar o controlador a uma LAN maior.
+- Fazer upload do firmware e do SPIFFS durante o comissionamento.

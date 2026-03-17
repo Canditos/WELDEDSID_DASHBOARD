@@ -1,5 +1,7 @@
 # Protocol Notes
 
+**Languages:** [English](protocols.md) | [Portugues](protocols.pt.md)
+
 This project currently exposes multiple control and observability surfaces.
 
 ## HTTP / REST

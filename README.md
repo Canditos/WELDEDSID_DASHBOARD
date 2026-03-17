@@ -1,5 +1,7 @@
 # WELDEDSID_DASHBOARD
 
+**Languages:** [English](README.md) | [Portuguese](README.pt.md)
+
 ESP32 firmware and embedded web dashboard for an industrial-style monitoring and control panel inspired by the Siemens SICHARGE D interface.
 
 This repository combines:
