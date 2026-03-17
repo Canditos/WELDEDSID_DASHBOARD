@@ -594,6 +594,9 @@ function syncDAC(channel, value, source) {
 }
 
 function resetDAC(channel) {
+    if (channel === 2 && programRunning) {
+        stopAutoProgram(channel);
+    }
     syncDAC(channel, 0.0, "reset");
 }
 
