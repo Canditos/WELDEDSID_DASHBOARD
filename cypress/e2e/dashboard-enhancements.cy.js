@@ -8,9 +8,9 @@ describe("Dashboard V2 enhancements", () => {
 
   it("applies DAC presets and sends the expected command", () => {
     cy.contains("[data-dac-preset='2']", "MID").click();
-    cy.get("[data-cy='dac-val-2']").should("have.text", "5.0 V");
+    cy.get("[data-cy='dac-val-2']").should("have.text", "6.5 V");
     cy.window().its("__wsMessages").should((messages) => {
-      expect(messages.some((msg) => msg.cmd === "dac" && msg.channel === 2 && msg.voltage === 5)).to.equal(true);
+      expect(messages.some((msg) => msg.cmd === "dac" && msg.channel === 2 && msg.voltage === 6.5)).to.equal(true);
     });
   });
 
@@ -35,6 +35,6 @@ describe("Dashboard V2 enhancements", () => {
     cy.get("#ws-mode-chip").should("contain.text", "WS: LIVE");
     cy.get("#ops-network-value").should("contain.text", "Connected");
     cy.get("#ops-relay-value").should("contain.text", "4 / 8");
-    cy.get("#ops-dac-value").should("contain.text", "0.0 V / 0.0 V");
+    cy.get("#ops-dac-value").should("contain.text", "0.0 V / 4.0 V");
   });
 });

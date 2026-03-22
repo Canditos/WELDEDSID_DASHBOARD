@@ -22,7 +22,7 @@ describe("Dashboard auth and layout", () => {
     cy.get("[data-cy='relay-btn-0']").should("have.class", "active");
     cy.get("[data-cy='relay-btn-1']").should("not.have.class", "active");
     cy.get("[data-cy='dac-val-1']").should("have.text", "0.0 V");
-    cy.get("[data-cy='dac-val-2']").should("have.text", "0.0 V");
+    cy.get("[data-cy='dac-val-2']").should("have.text", "4.0 V");
   });
 
   it("reflects consolidated health and AP fallback state without fake green badges", () => {

@@ -133,6 +133,13 @@ function setCommandState(value, meta, state = "", autoResetMs = 0) {
     }
 }
 
+function getDacBounds(channel) {
+    if (channel === 1) {
+        return { min: 2.5, max: 4.0, fallback: 2.5 };
+    }
+    return { min: 4.0, max: 9.0, fallback: 4.0 };
+}
+
 function updateAccessLocation(deviceIp) {
     const accessLabel = document.getElementById("display-ip");
     const accessLink = document.getElementById("device-open-link");
@@ -174,8 +181,8 @@ function updateAccessLocation(deviceIp) {
 
 function updateOpsSnapshot() {
     const activeRelays = relayStates.filter((state) => state === true).length;
-    const dac1 = dacValues[0] ?? "0.0";
-    const dac2 = dacValues[1] ?? "0.0";
+    const dac1 = dacValues[0] ?? "2.5";
+    const dac2 = dacValues[1] ?? "4.0";
 
     document.getElementById("ops-relay-value").innerText = `${activeRelays} / 8`;
     document.getElementById("ops-relay-meta").innerText = activeRelays > 0 ? "Relays currently energized" : "All relay outputs idle";
@@ -337,7 +344,7 @@ function setProgramRunning(running) {
     if (!button) return;
     programRunning = running;
     button.classList.toggle("running", running);
-    button.innerText = running ? "STOP DISPENSER TEMP STEP" : "DISPENSER TEMP STEP (0V-10V)";
+    button.innerText = running ? "STOP DISPENSER TEMP STEP" : "DISPENSER TEMP STEP (4V-9V)";
     setChipState(document.getElementById("dac-chip-2"), running ? "STEP ACTIVE" : "READY", running ? "warn" : "live");
 }
 
@@ -390,6 +397,7 @@ async function handleLogin(event) {
 
 function logout() {
     if (ws) ws.close();
+    ws = null;
     authHeader = "";
     wsToken = "";
     authUser = "";
@@ -397,6 +405,10 @@ function logout() {
     relayStates = new Array(8).fill(null);
     dacValues = [null, null];
     firstLoadProcessed = false;
+    if (wifiPollTimer) clearInterval(wifiPollTimer);
+    wifiPollTimer = null;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = null;
     document.body.style.overflow = "";
     setOpsCardState("ops-network-card", "");
     setOpsCardState("ops-command-card", "");
@@ -413,6 +425,13 @@ function logout() {
 
 function initWS() {
     if (!wsToken) return;
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
 
     updateModeChip("ws-mode-chip", "WS: CONNECTING", "warn");
     setCommandState("Connecting", "Opening WebSocket session", "warn");
@@ -424,11 +443,18 @@ function initWS() {
         ws.send(JSON.stringify({ cmd: "auth", token: wsToken }));
     };
     ws.onclose = () => {
+        ws = null;
         addLog("Connection lost. Retrying...", "ERR");
         updateModeChip("ws-mode-chip", "WS: RETRYING", "warn");
         setCommandState("Retrying", "Command bus reconnect in progress", "offline");
+        if (!authHeader || !wsToken) {
+            return;
+        }
         if (reconnectTimer) clearTimeout(reconnectTimer);
         reconnectTimer = setTimeout(initWS, 2000);
+    };
+    ws.onerror = () => {
+        updateModeChip("ws-mode-chip", "WS: ERROR", "warn");
     };
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -576,8 +602,7 @@ function resetAllRelays() {
 
 function syncDAC(channel, value, source) {
     let nextValue = parseFloat(value);
-    const min = 0.0;
-    const max = 10.0;
+    const { min, max } = getDacBounds(channel);
     if (Number.isNaN(nextValue)) return;
 
     nextValue = Math.min(Math.max(nextValue, min), max);
@@ -597,7 +622,7 @@ function resetDAC(channel) {
     if (channel === 2 && programRunning) {
         stopAutoProgram(channel);
     }
-    syncDAC(channel, 0.0, "reset");
+    syncDAC(channel, getDacBounds(channel).fallback, "reset");
 }
 
 function startAutoProgram(channel) {
@@ -606,8 +631,8 @@ function startAutoProgram(channel) {
     setProgramRunning(true);
     setCommandState("Program Active", "Dispenser Temp step profile running", "warn");
     showToast("Program started", "Dispenser Temp STEP is now running.", "info");
-    const start = 0.0;
-    const target = 10.0;
+    const start = 4.0;
+    const target = 9.0;
     const step = 0.5;
     const duration = 5000;
     const totalDurationMs = Math.ceil(Math.abs(target - start) / step) * duration + 500;
@@ -772,10 +797,13 @@ async function connectWifi() {
         addLog("Wi-Fi save request interrupted, waiting for device", "WARN");
     }
 
-    setInterval(() => {
+    if (wifiPollTimer) {
+        clearInterval(wifiPollTimer);
+    }
+    wifiPollTimer = setInterval(() => {
         updateWifiStatus();
         updateSystemHealth();
-    }, 5000);
+    }, 15000);
 }
 
 async function loadSecurityStatus() {

@@ -18,11 +18,11 @@ namespace Config {
     const uint8_t SDA_PIN = 21;
     const uint8_t SCL_PIN = 22;
 
-    // DAC Voltage Constraints (GP8413: 0-10V range when module is in 0-10V mode)
-    const float DAC1_MIN_V = 0.0f;
-    const float DAC1_MAX_V = 10.0f;
-    const float DAC2_MIN_V = 0.0f;
-    const float DAC2_MAX_V = 10.0f;
+    // DAC Voltage Constraints
+    const float DAC1_MIN_V = 2.5f;
+    const float DAC1_MAX_V = 4.0f;
+    const float DAC2_MIN_V = 4.0f;
+    const float DAC2_MAX_V = 9.0f;
 
     // Hardware Configuration - ADC
     const uint8_t ADC1_PIN = 34;

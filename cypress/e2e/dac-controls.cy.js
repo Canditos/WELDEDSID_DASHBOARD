@@ -38,4 +38,30 @@ describe("DAC controls", () => {
     });
     cy.get("[data-cy='log-container']").should("contain.text", "Executing Dispenser Temp STEP");
   });
+
+  it("stops the stepwise program when clicking the button again", () => {
+    cy.window().then((win) => {
+      win.__wsMessages = win.__wsMessages.filter((msg) => msg.cmd === "auth");
+    });
+    cy.get("[data-cy='execute-stepwise-btn']").click();
+    cy.wait(120);
+    cy.get("[data-cy='execute-stepwise-btn']").click();
+    cy.window().its("__wsMessages").should((messages) => {
+      expect(messages.some((msg) => msg.cmd === "stop_ramp" && msg.channel === 2)).to.equal(true);
+    });
+    cy.get("[data-cy='log-container']").should("contain.text", "Stopping Dispenser Temp STEP");
+  });
+
+  it("stops the step program when resetting DAC2", () => {
+    cy.window().then((win) => {
+      win.__wsMessages = win.__wsMessages.filter((msg) => msg.cmd === "auth");
+    });
+    cy.get("[data-cy='execute-stepwise-btn']").click();
+    cy.wait(120);
+    cy.get("[data-cy='reset-dac-2-btn']").click();
+    cy.window().its("__wsMessages").should((messages) => {
+      expect(messages.some((msg) => msg.cmd === "stop_ramp" && msg.channel === 2)).to.equal(true);
+    });
+    cy.get("[data-cy='dac-val-2']").should("have.text", "4.0 V");
+  });
 });

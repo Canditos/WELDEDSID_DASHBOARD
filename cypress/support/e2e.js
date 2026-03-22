@@ -2,7 +2,7 @@ const DEFAULT_STATE = {
   type: "init",
   relays: [true, false, true, false, false, true, false, true],
   v1: 0.0,
-  v2: 0.0,
+  v2: 4.0,
   mqtt: true,
   modbus: true,
   wifiMode: 2,

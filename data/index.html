@@ -220,7 +220,7 @@
                             <div class="dac-header">
                                 <div>
                                     <div class="relay-group-title" data-cy="dac-1-title">TF VOLTAGE</div>
-                                    <div class="helper-text dac-range-text" data-cy="dac-1-range">(Range: 0.0 - 10.0V)</div>
+                                    <div class="helper-text dac-range-text" data-cy="dac-1-range">(Range: 2.5 - 4.0V)</div>
                                 </div>
                                 <div class="dac-header-actions">
                                     <span class="control-chip" id="dac-chip-1">READY</span>
@@ -230,13 +230,13 @@
                             <div class="dac-val-display" id="val-dac1" data-cy="dac-val-1">2.0 V</div>
                             <div class="dac-footnote">Nominal TF analog setpoint</div>
                             <div class="dac-input-row">
-                                <input type="range" id="range-dac1" min="0.0" max="10.0" step="0.1" value="0.0" data-cy="dac-range-1">
-                                <input type="number" id="num-dac1" class="dac-num-input" min="0.0" max="10.0" step="0.1" value="0.0" data-cy="dac-num-1">
+                                <input type="range" id="range-dac1" min="2.5" max="4.0" step="0.1" value="2.5" data-cy="dac-range-1">
+                                <input type="number" id="num-dac1" class="dac-num-input" min="2.5" max="4.0" step="0.1" value="2.5" data-cy="dac-num-1">
                             </div>
                             <div class="dac-preset-row">
-                                <button class="preset-btn" type="button" data-dac-preset="1" data-value="0.0">DEFAULT</button>
-                                <button class="preset-btn" type="button" data-dac-preset="1" data-value="5.0">MID</button>
-                                <button class="preset-btn" type="button" data-dac-preset="1" data-value="10.0">MAX</button>
+                                <button class="preset-btn" type="button" data-dac-preset="1" data-value="2.5">DEFAULT</button>
+                                <button class="preset-btn" type="button" data-dac-preset="1" data-value="3.2">MID</button>
+                                <button class="preset-btn" type="button" data-dac-preset="1" data-value="4.0">MAX</button>
                             </div>
                         </article>
 
@@ -244,7 +244,7 @@
                             <div class="dac-header">
                                 <div>
                                     <div class="relay-group-title" data-cy="dac-2-title">DISPENSER TEMP</div>
-                                    <div class="helper-text dac-range-text" data-cy="dac-2-range">(Range: 0.0 - 10.0V)</div>
+                                    <div class="helper-text dac-range-text" data-cy="dac-2-range">(Range: 4.0 - 9.0V)</div>
                                 </div>
                                 <div class="dac-header-actions">
                                     <span class="control-chip" id="dac-chip-2">READY</span>
@@ -254,15 +254,15 @@
                             <div class="dac-val-display" id="val-dac2" data-cy="dac-val-2">4.0 V</div>
                             <div class="dac-footnote">Primary dispenser temperature channel</div>
                             <div class="dac-input-row">
-                                <input type="range" id="range-dac2" min="0.0" max="10.0" step="0.1" value="0.0" data-cy="dac-range-2">
-                                <input type="number" id="num-dac2" class="dac-num-input" min="0.0" max="10.0" step="0.1" value="0.0" data-cy="dac-num-2">
+                                <input type="range" id="range-dac2" min="4.0" max="9.0" step="0.1" value="4.0" data-cy="dac-range-2">
+                                <input type="number" id="num-dac2" class="dac-num-input" min="4.0" max="9.0" step="0.1" value="4.0" data-cy="dac-num-2">
                             </div>
                             <div class="dac-preset-row">
-                                <button class="preset-btn" type="button" data-dac-preset="2" data-value="0.0">DEFAULT</button>
-                                <button class="preset-btn" type="button" data-dac-preset="2" data-value="5.0">MID</button>
-                                <button class="preset-btn" type="button" data-dac-preset="2" data-value="10.0">MAX</button>
+                                <button class="preset-btn" type="button" data-dac-preset="2" data-value="4.0">DEFAULT</button>
+                                <button class="preset-btn" type="button" data-dac-preset="2" data-value="6.5">MID</button>
+                                <button class="preset-btn" type="button" data-dac-preset="2" data-value="9.0">MAX</button>
                             </div>
-                            <button class="program-btn" id="execute-stepwise-btn" data-cy="execute-stepwise-btn">DISPENSER TEMP STEP (0V-10V)</button>
+                            <button class="program-btn" id="execute-stepwise-btn" data-cy="execute-stepwise-btn">DISPENSER TEMP STEP (4V-9V)</button>
                         </article>
                     </div>
                 </section>
