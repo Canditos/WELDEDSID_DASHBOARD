@@ -159,7 +159,7 @@ Cypress.Commands.add("mountDashboard", (options = {}) => {
     req.reply({ statusCode: 200, body: { status: "ok" } });
   }).as("wifiSave");
 
-  cy.visit("/", {
+  cy.visit("http://esp32_01.local/", {
     onBeforeLoad(win) {
       win.__wsMessages = [];
       win.WebSocket = buildMockWebSocket(initialState, win);
