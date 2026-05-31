@@ -35,17 +35,25 @@ void MQTTManager::loop() {
 }
 
 void MQTTManager::reconnect() {
-    Serial.println("Attempting MQTT connection...");
+    Serial.printf("[MQTT] A ligar a %s:%d ...\n", netConfig.mqttHost, netConfig.mqttPort);
     String clientId = String(netConfig.deviceId) + "_" + String(random(0xffff), HEX);
     String statusTopic = "esp32/" + String(netConfig.deviceId) + "/status";
     
-    if (client.connect(clientId.c_str(), netConfig.mqttUser, netConfig.mqttPass, statusTopic.c_str(), 1, true, "offline")) {
-        Serial.println("MQTT Connected");
+    bool ok = (strlen(netConfig.mqttUser) > 0)
+        ? client.connect(clientId.c_str(), netConfig.mqttUser, netConfig.mqttPass,
+                         statusTopic.c_str(), 1, true, "offline")
+        : client.connect(clientId.c_str(), nullptr, nullptr,
+                         statusTopic.c_str(), 1, true, "offline");
+
+    if (ok) {
+        Serial.printf("[MQTT] Ligado! ClientID: %s\n", clientId.c_str());
         client.publish(statusTopic.c_str(), "online", true);
-        
-        // Subscribe to control topics
         String subTopic = "esp32/" + String(netConfig.deviceId) + "/#";
         client.subscribe(subTopic.c_str());
+        Serial.printf("[MQTT] Subscrito em: %s\n", subTopic.c_str());
+    } else {
+        Serial.printf("[MQTT] Falha ligação — state=%d (1=bad proto, 2=bad id, 3=unavail, 4=bad cred, 5=unauth)\n",
+                      client.state());
     }
 }
 
@@ -77,11 +85,25 @@ void MQTTManager::callback(char* topic, byte* payload, unsigned int length) {
 void MQTTManager::publishStatus() {
     String base = "esp32/" + String(netConfig.deviceId) + "/";
     
+    // Relés
     for (int i = 0; i < 8; i++) {
-        client.publish((base + "relay/" + String(i) + "/state").c_str(), hardware.getRelay(i) ? "ON" : "OFF");
+        client.publish((base + "relay/" + String(i) + "/state").c_str(),
+                       hardware.getRelay(i) ? "ON" : "OFF");
     }
     
-    client.publish((base + "voltage/1").c_str(), String(hardware.getDAC(1)).c_str());
-    client.publish((base + "voltage/2").c_str(), String(hardware.getDAC(2)).c_str());
+    // DAC — tensão com 2 casas decimais
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%.2f", hardware.getDAC(1));
+    client.publish((base + "voltage/1").c_str(), buf);
+    snprintf(buf, sizeof(buf), "%.2f", hardware.getDAC(2));
+    client.publish((base + "voltage/2").c_str(), buf);
+
+    // Sistema
     client.publish((base + "ip").c_str(), WiFi.localIP().toString().c_str());
+    snprintf(buf, sizeof(buf), "%u", ESP.getFreeHeap());
+    client.publish((base + "heap").c_str(), buf);
+    snprintf(buf, sizeof(buf), "%lu", millis() / 1000);
+    client.publish((base + "uptime").c_str(), buf);
+
+    Serial.println("[MQTT] Status publicado.");
 }

@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <esp_task_wdt.h>
 #include "config/ConfigManager.h"
 #include "hardware/HardwareHAL.h"
 #include "wifi/WiFiManager.h"
@@ -6,6 +7,8 @@
 #include "modbus/ModbusManager.h"
 #include "server/AppServer.h"
 #include "ota/OTAManager.h"
+
+#define WDT_TIMEOUT_S 30  // reset automático se loop travar mais de 30s
 
 // Static instances of core modules
 ConfigManager configMgr;
@@ -65,6 +68,11 @@ void setup() {
     Serial.println("[SYSTEM] OTA initialized.");
     
     Serial.println("[SYSTEM] ALL MODULES INITIALIZED. Setup finished.");
+
+    // 9. Watchdog Timer — reset automático se loop() travar > 30s
+    esp_task_wdt_init(WDT_TIMEOUT_S, true);
+    esp_task_wdt_add(NULL);
+    Serial.printf("[WDT] Watchdog iniciado — timeout %ds.\n", WDT_TIMEOUT_S);
 }
 
 void loop() {
@@ -81,6 +89,7 @@ void loop() {
     modbusMgr.loop();
     appServer.loop();
     otaMgr.loop();
-    
+
+    esp_task_wdt_reset(); // alimentar watchdog — prova que o loop está vivo
     yield();
 }

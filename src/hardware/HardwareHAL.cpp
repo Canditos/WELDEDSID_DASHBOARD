@@ -131,7 +131,17 @@ void HardwareHAL::writeGP8403(uint8_t channel, uint16_t value) {
     Wire.write(reg);
     Wire.write((raw >> 8) & 0xFF); // high byte first
     Wire.write(raw & 0xFF);        // low byte second
-    Wire.endTransmission();
+    uint8_t err = Wire.endTransmission();
+
+    // Validação: log do valor enviado e tensão esperada na saída
+    float expectedV = (value / 4095.0f) * 10.0f;
+    if (err == 0) {
+        Serial.printf("[DAC] CH%d → reg=0x%02X raw12=%u raw16=0x%04X expect=%.3fV OK\n",
+                      channel + 1, reg, value, raw, expectedV);
+    } else {
+        Serial.printf("[DAC] CH%d → I2C ERRO %u (reg=0x%02X value=%u expect=%.3fV)\n",
+                      channel + 1, err, reg, value, expectedV);
+    }
 }
 
 uint16_t HardwareHAL::voltageToDAC(float voltage) {
