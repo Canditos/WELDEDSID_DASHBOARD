@@ -22,7 +22,7 @@ void resetWiFiRadio(bool keepStoredCredentials = true) {
 }
 
 WiFiManager::WiFiManager(ConfigManager& configMgr) 
-    : config(configMgr), currentMode(WiFiModeState::OFF), isScanning(false) {}
+    : config(configMgr), currentMode(WiFiModeState::OFF), isScanning(false), scanStartedInAPMode(false), pendingAPRestore(false), apRestoreAtMs(0) {}
 
 void WiFiManager::begin() {
     WiFi.persistent(false);
@@ -40,6 +40,14 @@ void WiFiManager::loop() {
     static uint32_t lastCheck = 0;
     if (millis() - lastCheck < 1000) return;
     lastCheck = millis();
+
+    // Restore pure AP mode after scan completes, deferred so the HTTP
+    // response carrying the scan results is fully delivered first.
+    if (pendingAPRestore && millis() >= apRestoreAtMs) {
+        pendingAPRestore = false;
+        WiFi.mode(WIFI_AP);
+        Serial.println("[WIFI] Deferred: restored AP mode after scan.");
+    }
 
     switch (currentMode) {
         case WiFiModeState::STA_CONNECTING:
@@ -77,7 +85,7 @@ void WiFiManager::startAP() {
     Serial.printf("Starting AP: %s\n", Config::DEFAULT_AP_SSID);
     resetWiFiRadio();
     WiFi.mode(WIFI_AP);
-    bool success = WiFi.softAP(Config::DEFAULT_AP_SSID);
+    bool success = WiFi.softAP(Config::DEFAULT_AP_SSID, Config::DEFAULT_AP_PASS);
     if (success) {
         Serial.print("AP Started. IP: ");
         Serial.println(WiFi.softAPIP());
@@ -91,7 +99,7 @@ void WiFiManager::handleSTAFailure() {
     Serial.println("STA Connection Failed. Falling back to AP.");
     resetWiFiRadio();
     WiFi.mode(WIFI_AP);
-    bool success = WiFi.softAP(Config::DEFAULT_AP_SSID);
+    bool success = WiFi.softAP(Config::DEFAULT_AP_SSID, Config::DEFAULT_AP_PASS);
     if (success) {
         Serial.print("Fallback AP Started. IP: ");
         Serial.println(WiFi.softAPIP());
@@ -103,6 +111,17 @@ void WiFiManager::handleSTAFailure() {
 
 void WiFiManager::scanNetworks() {
     if (isScanning) return;
+
+    // If we are in pure AP mode, temporarily promote to AP+STA so the
+    // background scan does not tear down the soft-AP and disconnect the
+    // browser that triggered the scan.
+    scanStartedInAPMode = (currentMode == WiFiModeState::AP_ONLY ||
+                           currentMode == WiFiModeState::STA_FAILED_AP_FALLBACK);
+    if (scanStartedInAPMode) {
+        WiFi.mode(WIFI_AP_STA);
+        Serial.println("[WIFI] Scan: promoted to AP+STA to keep AP alive.");
+    }
+
     Serial.println("[WIFI] Starting Async Scan...");
     WiFi.scanNetworks(true); // Async scan
     isScanning = true;
@@ -113,6 +132,13 @@ String WiFiManager::getScanResultsJSON() {
     if (n == WIFI_SCAN_RUNNING) return "[]";
     if (n == WIFI_SCAN_FAILED || n < 0) {
         isScanning = false;
+        if (scanStartedInAPMode) {
+            scanStartedInAPMode = false;
+            // Schedule AP mode restore after 300ms so this HTTP response
+            // is fully delivered before the radio mode changes.
+            pendingAPRestore = true;
+            apRestoreAtMs = millis() + 300;
+        }
         return "[]";
     }
     
@@ -130,6 +156,16 @@ String WiFiManager::getScanResultsJSON() {
     serializeJson(arr, output);
     WiFi.scanDelete();
     isScanning = false;
+
+    if (scanStartedInAPMode) {
+        scanStartedInAPMode = false;
+        // Defer the mode switch so the HTTP response carrying these results
+        // is fully sent before the radio changes back to AP-only.
+        pendingAPRestore = true;
+        apRestoreAtMs = millis() + 300;
+        Serial.println("[WIFI] Scan done: AP restore scheduled in 300ms.");
+    }
+
     return output;
 }
 

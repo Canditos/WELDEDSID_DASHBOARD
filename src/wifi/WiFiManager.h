@@ -24,6 +24,9 @@ private:
     WiFiModeState currentMode;
     uint32_t connectionStartTime;
     bool isScanning;
+    bool scanStartedInAPMode;
+    bool pendingAPRestore;
+    uint32_t apRestoreAtMs;
     
     void startSTA();
     void startAP();

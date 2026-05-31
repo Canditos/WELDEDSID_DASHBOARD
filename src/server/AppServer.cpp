@@ -762,12 +762,12 @@ void AppServer::populateConfigExportJson(DynamicJsonDocument& doc) const {
 
     JsonObject network = doc.createNestedObject("network");
     network["ssid"] = networkConfig.ssid;
-    network["pass"] = networkConfig.pass;
+    network["pass"] = ""; // omitido por segurança
     network["deviceId"] = networkConfig.deviceId;
     network["mqttHost"] = networkConfig.mqttHost;
     network["mqttPort"] = networkConfig.mqttPort;
     network["mqttUser"] = networkConfig.mqttUser;
-    network["mqttPass"] = networkConfig.mqttPass;
+    network["mqttPass"] = ""; // omitido por segurança
     network["mqttEnabled"] = networkConfig.mqttEnabled;
 
     JsonObject security = doc.createNestedObject("security");
@@ -776,10 +776,10 @@ void AppServer::populateConfigExportJson(DynamicJsonDocument& doc) const {
         JsonObject item = users.createNestedObject();
         item["role"] = SecurityHelpers::roleToString(securityConfig.users[i].role);
         item["username"] = securityConfig.users[i].username;
-        item["password"] = securityConfig.users[i].password;
+        item["password"] = ""; // omitido por segurança
         item["enabled"] = securityConfig.users[i].enabled;
     }
-    security["otaPassword"] = securityConfig.otaPassword;
+    security["otaPassword"] = ""; // omitido por segurança
 
     const DeviceState& state = hardware.getState();
     JsonObject hw = doc.createNestedObject("hardware");

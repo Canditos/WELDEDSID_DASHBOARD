@@ -173,7 +173,7 @@ function updateAccessLocation(deviceIp) {
 
 function updateOpsSnapshot() {
     const activeRelays = relayStates.filter((state) => state === true).length;
-    const dac1 = dacValues[0] ?? "2.0";
+    const dac1 = dacValues[0] ?? "2.5";
     const dac2 = dacValues[1] ?? "4.0";
 
     document.getElementById("ops-relay-value").innerText = `${activeRelays} / 8`;
@@ -393,7 +393,7 @@ function logout() {
     authUser = "";
     currentUserRole = "viewer";
     relayStates = new Array(8).fill(null);
-    dacValues = [null, null];
+    dacValues = [null, null]; // reset: dac1=2.5V, dac2=4.0V
     firstLoadProcessed = false;
     document.body.style.overflow = "";
     setOpsCardState("ops-network-card", "");
@@ -574,8 +574,8 @@ function resetAllRelays() {
 
 function syncDAC(channel, value, source) {
     let nextValue = parseFloat(value);
-    const min = channel === 1 ? 2.0 : 4.0;
-    const max = channel === 1 ? 3.0 : 9.0;
+    const min = channel === 1 ? 2.5 : 4.0;
+    const max = channel === 1 ? 4.0 : 9.0;
     if (Number.isNaN(nextValue)) return;
 
     nextValue = Math.min(Math.max(nextValue, min), max);
@@ -592,7 +592,7 @@ function syncDAC(channel, value, source) {
 }
 
 function resetDAC(channel) {
-    syncDAC(channel, channel === 1 ? 2.0 : 4.0, "reset");
+    syncDAC(channel, channel === 1 ? 2.5 : 4.0, "reset");
 }
 
 function startAutoProgram(channel) {

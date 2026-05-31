@@ -58,7 +58,10 @@ void setup() {
     SecurityConfig securityConfig;
     configMgr.loadNetworkConfig(currentNet);
     configMgr.loadSecurityConfig(securityConfig);
-    otaMgr.begin(currentNet.deviceId, securityConfig.otaPassword);
+    otaMgr.begin(currentNet.deviceId, 
+                 strlen(securityConfig.otaPassword) > 0 
+                     ? securityConfig.otaPassword 
+                     : Config::DEFAULT_OTA_PASS);
     Serial.println("[SYSTEM] OTA initialized.");
     
     Serial.println("[SYSTEM] ALL MODULES INITIALIZED. Setup finished.");

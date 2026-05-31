@@ -4,6 +4,8 @@
 namespace Config {
     // WiFi Configuration
     const char* const DEFAULT_AP_SSID = "WELDEDSID";
+    const char* const DEFAULT_AP_PASS = "siemens2026";  // password AP fallback
+    const char* const DEFAULT_OTA_PASS = "siemens2026"; // password OTA
     const uint32_t WIFI_STA_TIMEOUT_MS = 30000;
 
     // Device Configuration
@@ -19,8 +21,8 @@ namespace Config {
     const uint8_t SCL_PIN = 22;
 
     // DAC Voltage Constraints
-    const float DAC1_MIN_V = 2.0f;
-    const float DAC1_MAX_V = 3.0f;
+    const float DAC1_MIN_V = 2.5f;
+    const float DAC1_MAX_V = 4.0f;
     const float DAC2_MIN_V = 4.0f;
     const float DAC2_MAX_V = 9.0f;
 

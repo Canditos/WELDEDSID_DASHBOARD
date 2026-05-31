@@ -15,7 +15,20 @@ void HardwareHAL::begin() {
     
     // Initialize I2C for DAC
     Wire.begin(Config::SDA_PIN, Config::SCL_PIN);
-    
+
+    // GP8403 requires explicit output range configuration on every boot.
+    // Register 0x01, value 0x11 = 0–10 V on both channels.
+    // Without this the chip defaults to 0–5 V and channel 2 (max 9 V) is unusable.
+    Wire.beginTransmission(Config::DAC_I2C_ADDR);
+    Wire.write(0x01); // range config register
+    Wire.write(0x11); // both channels: 0–10 V
+    uint8_t i2cErr = Wire.endTransmission();
+    if (i2cErr == 0) {
+        Serial.println("[HAL] GP8403 range set to 0-10V on both channels.");
+    } else {
+        Serial.printf("[HAL] GP8403 range config failed (I2C error %u). Check wiring.\n", i2cErr);
+    }
+
     // Restore states from NVS
     config.loadHardwareState(state);
     
@@ -108,23 +121,25 @@ const DeviceState& HardwareHAL::getState() const { return state; }
 bool HardwareHAL::hasStateChanged() { if(_changed) { _changed = false; return true; } return false; }
 
 void HardwareHAL::writeGP8403(uint8_t channel, uint16_t value) {
-    // GP8403 Protocol: [Addr] [Reg] [DataL] [DataH]
-    // Reg for Output 0: 0x02, Output 1: 0x04
+    // GP8403 register map: Output 0 → 0x02, Output 1 → 0x04
+    // Data format: 12-bit value left-aligned in a 16-bit word (bits [15:4]).
+    // Byte order: high byte first, then low byte.
     uint8_t reg = (channel == 0) ? 0x02 : 0x04;
-    
+    uint16_t raw = value << 4; // left-align 12-bit value into 16-bit word
+
     Wire.beginTransmission(Config::DAC_I2C_ADDR);
     Wire.write(reg);
-    Wire.write(value & 0xFF);        // Low byte
-    Wire.write((value >> 8) & 0xFF); // High byte
+    Wire.write((raw >> 8) & 0xFF); // high byte first
+    Wire.write(raw & 0xFF);        // low byte second
     Wire.endTransmission();
 }
 
 uint16_t HardwareHAL::voltageToDAC(float voltage) {
-    // Internal conversion formula: uint16_t dacValue = (voltage / 10.0) * 4095;
+    // GP8403 in 0–10 V mode: 12-bit resolution → 4095 = 10.0 V
     float val = (voltage / 10.0f) * 4095.0f;
-    if (val > 4095) val = 4095;
-    if (val < 0) val = 0;
-    return (uint16_t)val;
+    if (val > 4095.0f) val = 4095.0f;
+    if (val < 0.0f) val = 0.0f;
+    return static_cast<uint16_t>(val);
 }
 
 void HardwareHAL::startRamp(uint8_t channel, float targetVoltage, uint32_t durationMs) {
