@@ -1,6 +1,7 @@
 const RELAY_NAMES = [
     "DC1 FB", "DC2 FB", "DC3 FB", "DC4 FB",
-    "DC1 24V", "DC2 24V", "MG1 FB", "MG2 FB"
+    "DC1 24V", "DC2 24V", "MG1 FB", "MG2 FB",
+    "MG3 FB", "MG4 FB"
 ];
 
 let ws;
@@ -8,7 +9,7 @@ let wsToken = "";
 let authHeader = "";
 let authUser = "";
 let currentUserRole = "viewer";
-let relayStates = new Array(8).fill(null);
+let relayStates = new Array(10).fill(null);
 let dacValues = [null, null];
 let firstLoadProcessed = false;
 let wifiPollTimer = null;
@@ -176,7 +177,7 @@ function updateOpsSnapshot() {
     const dac1 = dacValues[0] ?? "2.5";
     const dac2 = dacValues[1] ?? "4.0";
 
-    document.getElementById("ops-relay-value").innerText = `${activeRelays} / 8`;
+    document.getElementById("ops-relay-value").innerText = `${activeRelays} / 10`;
     document.getElementById("ops-relay-meta").innerText = activeRelays > 0 ? "Relays currently energized" : "All relay outputs idle";
     document.getElementById("ops-dac-value").innerText = `${dac1} V / ${dac2} V`;
     setOpsCardState("ops-relay-card", activeRelays > 0 ? "live" : "");
@@ -392,7 +393,7 @@ function logout() {
     wsToken = "";
     authUser = "";
     currentUserRole = "viewer";
-    relayStates = new Array(8).fill(null);
+    relayStates = new Array(10).fill(null);
     dacValues = [null, null]; // reset: dac1=2.5V, dac2=4.0V
     firstLoadProcessed = false;
     document.body.style.overflow = "";

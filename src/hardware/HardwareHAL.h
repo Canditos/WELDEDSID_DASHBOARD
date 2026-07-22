@@ -52,4 +52,5 @@ private:
     
     void writeGP8403(uint8_t channel, uint16_t value);
     uint16_t voltageToDAC(float voltage);
+    void updateShiftRegister();
 };

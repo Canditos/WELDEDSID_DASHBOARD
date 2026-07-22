@@ -12,7 +12,7 @@ enum class WiFiModeState {
 };
 
 struct DeviceState {
-    bool relays[8];
+    bool relays[16];
     float dac1_v;
     float dac2_v;
     WiFiModeState wifiMode;

@@ -11,9 +11,12 @@ namespace Config {
     // Device Configuration
     const char* const DEFAULT_DEVICE_ID = "esp32_01";
 
-    // Hardware Configuration - Relays
-    const uint8_t RELAY_PINS[] = {23, 32, 33, 19, 18, 5, 17, 16};
-    const uint8_t RELAY_COUNT = 8;
+    // Hardware Configuration - Relays (Shift Register)
+    const uint8_t SHIFT_DATA_PIN = 14;
+    const uint8_t SHIFT_CLOCK_PIN = 13;
+    const uint8_t SHIFT_LATCH_PIN = 12;
+    const uint8_t SHIFT_OE_PIN = 5;
+    const uint8_t RELAY_COUNT = 10;
 
     // Hardware Configuration - DAC (GP8403)
     const uint8_t DAC_I2C_ADDR = 0x58;

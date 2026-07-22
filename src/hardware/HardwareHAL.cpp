@@ -7,11 +7,13 @@ HardwareHAL::HardwareHAL(ConfigManager& configMgr) : config(configMgr) {
 }
 
 void HardwareHAL::begin() {
-    // Initialize Relays as OUTPUT and set to HIGH (OFF for active-low)
-    for (uint8_t i = 0; i < Config::RELAY_COUNT; i++) {
-        pinMode(Config::RELAY_PINS[i], OUTPUT);
-        digitalWrite(Config::RELAY_PINS[i], HIGH);
-    }
+    // Initialize Shift Register Pins
+    pinMode(Config::SHIFT_DATA_PIN, OUTPUT);
+    pinMode(Config::SHIFT_CLOCK_PIN, OUTPUT);
+    pinMode(Config::SHIFT_LATCH_PIN, OUTPUT);
+    pinMode(Config::SHIFT_OE_PIN, OUTPUT);
+
+    digitalWrite(Config::SHIFT_OE_PIN, LOW); // habilita as saídas
     
     // Initialize I2C for DAC
     Wire.begin(Config::SDA_PIN, Config::SCL_PIN);
@@ -33,28 +35,31 @@ void HardwareHAL::begin() {
     config.loadHardwareState(state);
     
     // Apply restored states
-    for (uint8_t i = 0; i < Config::RELAY_COUNT; i++) {
-        setRelay(i, state.relays[i]);
-    }
+    updateShiftRegister();
     setDAC(1, state.dac1_v);
     setDAC(2, state.dac2_v);
+}
+
+void HardwareHAL::updateShiftRegister() {
+    uint16_t value = 0;
+    for (int i = 0; i < Config::RELAY_COUNT; i++) {
+        if (state.relays[i]) {
+            value |= (1 << i);
+        }
+    }
+    digitalWrite(Config::SHIFT_LATCH_PIN, LOW);
+    shiftOut(Config::SHIFT_DATA_PIN, Config::SHIFT_CLOCK_PIN, MSBFIRST, value >> 8);
+    shiftOut(Config::SHIFT_DATA_PIN, Config::SHIFT_CLOCK_PIN, MSBFIRST, value & 0xFF);
+    digitalWrite(Config::SHIFT_LATCH_PIN, HIGH);
 }
 
 void HardwareHAL::setRelay(uint8_t index, bool on) {
     if (index >= Config::RELAY_COUNT) return;
     
     state.relays[index] = on;
-    uint8_t pin = Config::RELAY_PINS[index];
+    updateShiftRegister();
     
-    if (on) {
-        // ON: Drive LOW (Active-Low relay)
-        digitalWrite(pin, LOW);
-        Serial.printf("[HAL] Relay %d (Pin %d) -> ON (LOW)\n", index + 1, pin);
-    } else {
-        // OFF: Drive HIGH
-        digitalWrite(pin, HIGH);
-        Serial.printf("[HAL] Relay %d (Pin %d) -> OFF (HIGH)\n", index + 1, pin);
-    }
+    Serial.printf("[HAL] Relay %d -> %s\n", index + 1, on ? "ON" : "OFF");
     
     // Save full mask to ensure consistency
     uint8_t mask = 0;
@@ -68,10 +73,9 @@ void HardwareHAL::setRelay(uint8_t index, bool on) {
 void HardwareHAL::setRelayMask(uint8_t mask) {
     Serial.printf("[HAL] Applying Relay Mask: 0x%02X\n", mask);
     for (uint8_t i = 0; i < Config::RELAY_COUNT; i++) {
-        bool on = (mask >> i) & 0x01;
-        state.relays[i] = on;
-        digitalWrite(Config::RELAY_PINS[i], on ? LOW : HIGH);
+        state.relays[i] = (mask >> i) & 0x01;
     }
+    updateShiftRegister();
     _changed = true;
     config.saveRelayMask(mask);
 }
