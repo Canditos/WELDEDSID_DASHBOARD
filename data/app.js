@@ -1016,7 +1016,7 @@ document.getElementById("network-panel-toggle").addEventListener("click", toggle
 document.getElementById("reset-all-relays-btn").addEventListener("click", resetAllRelays);
 document.getElementById("reset-group-1-btn").addEventListener("click", () => resetRelayGroup([0, 1, 2, 3]));
 document.getElementById("reset-group-2-btn").addEventListener("click", () => resetRelayGroup([4, 5]));
-document.getElementById("reset-group-3-btn").addEventListener("click", () => resetRelayGroup([6, 7]));
+document.getElementById("reset-group-3-btn").addEventListener("click", () => resetRelayGroup([6, 7, 8, 9]));
 document.getElementById("reset-dac-1-btn").addEventListener("click", () => resetDAC(1));
 document.getElementById("reset-dac-2-btn").addEventListener("click", () => resetDAC(2));
 document.getElementById("execute-stepwise-btn").addEventListener("click", () => startAutoProgram(2));

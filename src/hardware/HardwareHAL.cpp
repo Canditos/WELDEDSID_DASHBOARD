@@ -62,7 +62,7 @@ void HardwareHAL::setRelay(uint8_t index, bool on) {
     Serial.printf("[HAL] Relay %d -> %s\n", index + 1, on ? "ON" : "OFF");
     
     // Save full mask to ensure consistency
-    uint8_t mask = 0;
+    uint16_t mask = 0;
     for (int i = 0; i < Config::RELAY_COUNT; i++) {
         if (state.relays[i]) mask |= (1 << i);
     }
@@ -70,8 +70,8 @@ void HardwareHAL::setRelay(uint8_t index, bool on) {
     _changed = true;
 }
 
-void HardwareHAL::setRelayMask(uint8_t mask) {
-    Serial.printf("[HAL] Applying Relay Mask: 0x%02X\n", mask);
+void HardwareHAL::setRelayMask(uint16_t mask) {
+    Serial.printf("[HAL] Applying Relay Mask: 0x%04X\n", mask);
     for (uint8_t i = 0; i < Config::RELAY_COUNT; i++) {
         state.relays[i] = (mask >> i) & 0x01;
     }

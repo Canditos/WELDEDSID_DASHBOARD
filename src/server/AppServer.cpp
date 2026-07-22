@@ -366,7 +366,7 @@ void AppServer::setupRoutes() {
 
         if (doc["hardware"].is<JsonObject>()) {
             JsonObject hardwareConfig = doc["hardware"];
-            uint8_t relayMask = hardwareConfig["relayMask"] | 0;
+            uint16_t relayMask = hardwareConfig["relayMask"] | 0;
             hardware.setRelayMask(relayMask);
             if (hardwareConfig["dac1"].is<float>()) {
                 hardware.setDAC(1, hardwareConfig["dac1"].as<float>());
@@ -589,10 +589,10 @@ void AppServer::handleWebSocketMessage(uint8_t num, uint8_t* payload, size_t len
         broadcastUpdate(idx, state);
     } else if (strcmp(cmd, "relay_all") == 0) {
         bool state = doc["state"];
-        hardware.setRelayMask(state ? 0xFF : 0x00);
+        hardware.setRelayMask(state ? 0xFFFF : 0x0000);
         broadcastUpdate();
     } else if (strcmp(cmd, "relay_mask") == 0) {
-        uint8_t mask = doc["mask"];
+        uint16_t mask = doc["mask"];
         hardware.setRelayMask(mask);
         broadcastUpdate();
     } else if (strcmp(cmd, "dac") == 0) {

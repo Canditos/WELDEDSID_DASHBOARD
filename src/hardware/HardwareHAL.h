@@ -10,7 +10,7 @@ public:
     void begin();
     
     void setRelay(uint8_t index, bool state);
-    void setRelayMask(uint8_t mask);
+    void setRelayMask(uint16_t mask);
     bool getRelay(uint8_t index) const;
     
     void setDAC(uint8_t channel, float voltage);

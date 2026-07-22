@@ -142,7 +142,7 @@ void ConfigManager::resetSecurityConfig() {
 }
 
 void ConfigManager::loadHardwareState(DeviceState& state) {
-    uint8_t mask = prefs.getUChar("relays_mask", 0);
+    uint16_t mask = prefs.getUShort("relays_mask", 0);
     for (uint8_t i = 0; i < Config::RELAY_COUNT; i++) {
         state.relays[i] = (mask >> i) & 0x01;
     }
@@ -152,17 +152,17 @@ void ConfigManager::loadHardwareState(DeviceState& state) {
 
 void ConfigManager::saveRelayState(uint8_t index, bool state) {
     if (index < Config::RELAY_COUNT) {
-        uint8_t mask = prefs.getUChar("relays_mask", 0);
+        uint16_t mask = prefs.getUShort("relays_mask", 0);
         if (state) mask |= (1 << index);
         else mask &= ~(1 << index);
-        prefs.putUChar("relays_mask", mask);
+        prefs.putUShort("relays_mask", mask);
     }
 }
 
-void ConfigManager::saveRelayMask(uint8_t mask) {
-    uint8_t current = prefs.getUChar("relays_mask", 0);
+void ConfigManager::saveRelayMask(uint16_t mask) {
+    uint16_t current = prefs.getUShort("relays_mask", 0);
     if (current == mask) return; // Prevent redundant writes
-    prefs.putUChar("relays_mask", mask);
+    prefs.putUShort("relays_mask", mask);
 }
 
 void ConfigManager::saveDACState(uint8_t channel, float voltage) {
