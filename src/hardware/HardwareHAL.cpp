@@ -15,8 +15,27 @@ void HardwareHAL::begin() {
 
     digitalWrite(Config::SHIFT_OE_PIN, LOW); // habilita as saídas
     
-    // Initialize I2C for DAC
+    // Initialize I2C for DAC with explicit internal pull-ups
+    pinMode(Config::SDA_PIN, INPUT_PULLUP);
+    pinMode(Config::SCL_PIN, INPUT_PULLUP);
     Wire.begin(Config::SDA_PIN, Config::SCL_PIN);
+
+    Serial.println("\n[I2C] Iniciando Scan I2C...");
+    byte scan_error, scan_address;
+    int nDevices = 0;
+    for(scan_address = 1; scan_address < 127; scan_address++ ) {
+        Wire.beginTransmission(scan_address);
+        scan_error = Wire.endTransmission();
+        if (scan_error == 0) {
+            Serial.printf("[I2C] Dispositivo encontrado no endereco 0x%02X\n", scan_address);
+            nDevices++;
+        }
+    }
+    if (nDevices == 0) {
+        Serial.println("[I2C] Nenhum dispositivo encontrado.\n");
+    } else {
+        Serial.println("[I2C] Fim do Scan.\n");
+    }
 
     // GP8403 requires explicit output range configuration on every boot.
     // Register 0x01, value 0x11 = 0–10 V on both channels.
