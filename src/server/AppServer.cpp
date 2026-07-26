@@ -153,7 +153,7 @@ void AppServer::setupRoutes() {
         DynamicJsonDocument doc(1024);
         const DeviceState& state = hardware.getState();
         JsonArray relays = doc.createNestedArray("relays");
-        for (int i = 0; i < 8; i++) relays.add(state.relays[i]);
+        for (int i = 0; i < Config::RELAY_COUNT; i++) relays.add(state.relays[i]);
 
         doc["v1"] = state.dac1_v;
         doc["v2"] = state.dac2_v;
@@ -368,10 +368,10 @@ void AppServer::setupRoutes() {
             JsonObject hardwareConfig = doc["hardware"];
             uint16_t relayMask = hardwareConfig["relayMask"] | 0;
             hardware.setRelayMask(relayMask);
-            if (hardwareConfig["dac1"].is<float>()) {
+            if (hardwareConfig.containsKey("dac1")) {
                 hardware.setDAC(1, hardwareConfig["dac1"].as<float>());
             }
-            if (hardwareConfig["dac2"].is<float>()) {
+            if (hardwareConfig.containsKey("dac2")) {
                 hardware.setDAC(2, hardwareConfig["dac2"].as<float>());
             }
         }
@@ -597,7 +597,7 @@ void AppServer::handleWebSocketMessage(uint8_t num, uint8_t* payload, size_t len
         broadcastUpdate();
     } else if (strcmp(cmd, "dac") == 0) {
         int channel = doc["channel"];
-        if (!hasValidDacChannel(channel) || !doc["voltage"].is<float>()) return;
+        if (!hasValidDacChannel(channel) || !doc.containsKey("voltage")) return;
         hardware.setDAC(channel, doc["voltage"].as<float>());
         broadcastUpdate();
     } else if (strcmp(cmd, "dac_all") == 0) {
@@ -630,7 +630,7 @@ void AppServer::sendStateToClient(uint8_t num) {
     const DeviceState& state = hardware.getState();
     doc["type"] = "init";
     JsonArray relays = doc.createNestedArray("relays");
-    for (int i = 0; i < 8; i++) relays.add(state.relays[i]);
+    for (int i = 0; i < Config::RELAY_COUNT; i++) relays.add(state.relays[i]);
     doc["v1"] = state.dac1_v;
     doc["v2"] = state.dac2_v;
     doc["wifiMode"] = static_cast<int>(wifi.getMode());
@@ -654,7 +654,7 @@ void AppServer::broadcastUpdate(int singleIdx, int singleState) {
         doc["state"] = static_cast<bool>(singleState);
     } else {
         JsonArray relays = doc.createNestedArray("relays");
-        for (int i = 0; i < 8; i++) relays.add(state.relays[i]);
+        for (int i = 0; i < Config::RELAY_COUNT; i++) relays.add(state.relays[i]);
     }
 
     doc["v1"] = state.dac1_v;

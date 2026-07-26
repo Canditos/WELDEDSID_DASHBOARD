@@ -1,0 +1,1538 @@
+# 🧪 SICHARGE D — Cypress Automation Guide
+
+> Guia completo para automatizar a Dashboard do controlador ESP32 SICHARGE D com Cypress.
+> Inclui: Login, Relés, DAC, Step Ramp, WebSocket, Segurança, Wi-Fi, Configuração e Logs.
+
+---
+
+## Índice
+
+1. [Setup do Projeto Cypress](#1-setup-do-projeto-cypress)
+2. [Arquitetura da Dashboard](#2-arquitetura-da-dashboard)
+3. [Seletores — Mapa Completo de Elementos](#3-seletores--mapa-completo-de-elementos)
+4. [Credenciais & Roles](#4-credenciais--roles)
+5. [Custom Commands](#5-custom-commands)
+6. [Testes: Login & Autenticação](#6-testes-login--autenticação)
+7. [Testes: Relay Control (12 Relés)](#7-testes-relay-control-12-relés)
+8. [Testes: DAC Voltage Control](#8-testes-dac-voltage-control)
+9. [Testes: Step Ramp Program](#9-testes-step-ramp-program)
+10. [Testes: WebSocket Protocol](#10-testes-websocket-protocol)
+11. [Testes: WiFi Management](#11-testes-wifi-management)
+12. [Testes: Security & Users](#12-testes-security--users)
+13. [Testes: Config Export/Import/Reset](#13-testes-config-exportimportreset)
+14. [Testes: System Event Log](#14-testes-system-event-log)
+15. [Testes: Role-Based Access Control](#15-testes-role-based-access-control)
+16. [API REST — Referência Completa](#16-api-rest--referência-completa)
+17. [WebSocket Protocol — Referência Completa](#17-websocket-protocol--referência-completa)
+18. [Troubleshooting & Tips](#18-troubleshooting--tips)
+
+---
+
+## 1. Setup do Projeto Cypress
+
+### Instalação
+
+```bash
+# Na raiz do projeto (ou numa pasta dedicada a testes)
+npm init -y
+npm install cypress --save-dev
+npx cypress open
+```
+
+### `cypress.config.js`
+
+```javascript
+const { defineConfig } = require('cypress');
+
+module.exports = defineConfig({
+  e2e: {
+    baseUrl: 'http://192.168.0.207',
+    viewportWidth: 1920,
+    viewportHeight: 1080,
+    defaultCommandTimeout: 10000,
+    responseTimeout: 15000,
+    video: true,
+    screenshotOnRunFailure: true,
+    retries: {
+      runMode: 2,
+      openMode: 0
+    },
+    setupNodeEvents(on, config) {
+      // Plugins aqui se necessário
+    },
+  },
+});
+```
+
+### Estrutura de Ficheiros Recomendada
+
+```
+cypress/
+├── e2e/
+│   ├── login.cy.js
+│   ├── relays.cy.js
+│   ├── dac.cy.js
+│   ├── step-ramp.cy.js
+│   ├── websocket.cy.js
+│   ├── wifi.cy.js
+│   ├── security.cy.js
+│   ├── config.cy.js
+│   ├── logs.cy.js
+│   └── roles.cy.js
+├── support/
+│   ├── commands.js
+│   └── e2e.js
+└── fixtures/
+    ├── admin-user.json
+    ├── operator-user.json
+    ├── viewer-user.json
+    └── config-backup.json
+```
+
+---
+
+## 2. Arquitetura da Dashboard
+
+### Fluxo de Comunicação
+
+```
+┌─────────────┐     HTTP Basic Auth      ┌───────────────┐
+│   Browser    │ ──────────────────────── │  ESP32 :80    │
+│  (Cypress)   │     REST API (JSON)      │  AsyncWebSvr  │
+│              │ ──────────────────────── │               │
+│              │     WebSocket :81        │  WebSocket    │
+│              │ ════════════════════════ │  Server       │
+└─────────────┘                          └───────────────┘
+```
+
+### Fluxo de Autenticação
+
+```
+1. POST login form → authHeader = "Basic " + btoa("user:pass")
+2. GET /api/ws-auth  (com Authorization header) → { token, role, username }
+3. WebSocket connect ws://IP:81/
+4. WS send: { "cmd": "auth", "token": "<token>" }
+5. WS receive: { "type": "auth", "ok": true, "role": "admin", "username": "admin" }
+6. WS receive: { "type": "init", "relays": [...], "v1": 2.5, "v2": 4.0, ... }
+```
+
+---
+
+## 3. Seletores — Mapa Completo de Elementos
+
+### 3.1 Login
+
+| Elemento | Seletor Cypress | Tipo |
+|---|---|---|
+| Overlay do Login | `#login-overlay` | `div` |
+| Formulário | `#login-form` | `form` |
+| Campo Username | `#login-username` | `input[type=text]` |
+| Campo Password | `#login-password` | `input[type=password]` |
+| Botão Login | `.login-btn` | `button[type=submit]` |
+| Mensagem de Erro | `#login-error` | `div` |
+| Botão Logout | `[data-cy=logout-btn]` | `button` |
+
+### 3.2 Status & Header
+
+| Elemento | Seletor Cypress | Tipo |
+|---|---|---|
+| Badge Wi-Fi | `#badge-wifi` | `span` |
+| Badge MQTT | `#badge-mqtt` | `span` |
+| Badge Modbus | `#badge-modbus` | `span` |
+| Chip Wi-Fi Mode | `#wifi-mode-chip` | `span` |
+| Chip MQTT Mode | `#mqtt-mode-chip` | `span` |
+| Chip Modbus Mode | `#modbus-mode-chip` | `span` |
+| Chip WebSocket | `#ws-mode-chip` | `span` |
+| Display IP | `#display-ip` | `span` |
+| Link Abrir Device | `#device-open-link` | `a` |
+
+### 3.3 Operations Summary Cards
+
+| Elemento | Seletor Cypress | Descrição |
+|---|---|---|
+| Card Network | `#ops-network-card` | Estado da rede |
+| Card Command | `#ops-command-card` | Último comando |
+| Card Relays | `#ops-relay-card` | Contagem de relés ativos |
+| Card DAC | `#ops-dac-card` | Voltagens atuais |
+| Valor (qualquer card) | `#ops-{name}-value` | Valor numérico |
+| Meta (qualquer card) | `#ops-{name}-meta` | Texto descritivo |
+
+### 3.4 Relays (12 Relés)
+
+| Elemento | Seletor Cypress | data-cy |
+|---|---|---|
+| Reset All Relays | `#reset-all-relays-btn` | `reset-all-relays-btn` |
+| **Grupo 1 — Feedback (R1-R4)** | | |
+| Reset Group 1 | `#reset-group-1-btn` | `reset-group-1-btn` |
+| Relé 0 (DC1 FB) | `#btn-r0` | `relay-btn-0` |
+| Relé 1 (DC2 FB) | `#btn-r1` | `relay-btn-1` |
+| Relé 2 (DC3 FB) | `#btn-r2` | `relay-btn-2` |
+| Relé 3 (DC4 FB) | `#btn-r3` | `relay-btn-3` |
+| **Grupo 2 — 24V DC (R5-R8)** | | |
+| Reset Group 2 | `#reset-group-2-btn` | `reset-group-2-btn` |
+| Relé 4 (DC1 24V) | `#btn-r4` | `relay-btn-4` |
+| Relé 5 (DC2 24V) | `#btn-r5` | `relay-btn-5` |
+| Relé 6 (DC3 24V) | `#btn-r6` | `relay-btn-6` |
+| Relé 7 (DC4 24V) | `#btn-r7` | `relay-btn-7` |
+| **Grupo 3 — MG FB (R9-R12)** | | |
+| Reset Group 3 | `#reset-group-3-btn` | `reset-group-3-btn` |
+| Relé 8 (MG1 FB) | `#btn-r8` | `relay-btn-8` |
+| Relé 9 (MG2 FB) | `#btn-r9` | `relay-btn-9` |
+| Relé 10 (MG3 FB) | `#btn-r10` | `relay-btn-10` |
+| Relé 11 (MG4 FB) | `#btn-r11` | `relay-btn-11` |
+| Header do Relé N | — | `relay-{N}-header` |
+| Grupo N Container | — | `relay-group-{N}` |
+
+### 3.5 DAC Controls
+
+| Elemento | Seletor Cypress | data-cy |
+|---|---|---|
+| **DAC 1 — TF Voltage (2.5V–4.0V)** | | |
+| Card DAC 1 | — | `dac-control-1` |
+| Chip Status | `#dac-chip-1` | — |
+| Reset DAC 1 | `#reset-dac-1-btn` | `reset-dac-1-btn` |
+| Display Voltage | `#val-dac1` | `dac-val-1` |
+| Slider (Range) | `#range-dac1` | `dac-range-1` |
+| Input Numérico | `#num-dac1` | `dac-num-1` |
+| Preset DEFAULT (2.5V) | `[data-dac-preset="1"][data-value="2.5"]` | — |
+| Preset MID (3.2V) | `[data-dac-preset="1"][data-value="3.2"]` | — |
+| Preset MAX (4.0V) | `[data-dac-preset="1"][data-value="4.0"]` | — |
+| **DAC 2 — Dispenser Temp (4.0V–9.0V)** | | |
+| Card DAC 2 | — | `dac-control-2` |
+| Chip Status | `#dac-chip-2` | — |
+| Reset DAC 2 | `#reset-dac-2-btn` | `reset-dac-2-btn` |
+| Display Voltage | `#val-dac2` | `dac-val-2` |
+| Slider (Range) | `#range-dac2` | `dac-range-2` |
+| Input Numérico | `#num-dac2` | `dac-num-2` |
+| Preset DEFAULT (4.0V) | `[data-dac-preset="2"][data-value="4.0"]` | — |
+| Preset MID (6.5V) | `[data-dac-preset="2"][data-value="6.5"]` | — |
+| Preset MAX (9.0V) | `[data-dac-preset="2"][data-value="9.0"]` | — |
+
+### 3.6 Step Ramp Program
+
+| Elemento | Seletor Cypress | data-cy |
+|---|---|---|
+| Execute Step Program | `#execute-stepwise-btn` | `execute-stepwise-btn` |
+
+### 3.7 Wi-Fi Configuration
+
+| Elemento | Seletor Cypress | data-cy |
+|---|---|---|
+| Panel Toggle | `#network-panel-toggle` | — |
+| Panel Body | `#network-panel-body` | — |
+| Wi-Fi Status | `#wifi-status` | — |
+| Scan Wi-Fi | `#scan-wifi-btn` | `scan-wifi-btn` |
+| Lista de Redes | `#wifi-list` | — |
+| Input SSID | `#wifi-ssid` | `wifi-ssid-input` |
+| Input Password | `#wifi-pass` | `wifi-pass-input` |
+| Save & Connect | `#save-connect-btn` | `save-connect-btn` |
+
+### 3.8 Security & Users
+
+| Elemento | Seletor Cypress |
+|---|---|
+| Admin Username | `#security-admin-user` |
+| Admin Password | `#security-admin-pass` |
+| Operator Enabled | `#security-operator-enabled` |
+| Operator Username | `#security-operator-user` |
+| Operator Password | `#security-operator-pass` |
+| Viewer Enabled | `#security-viewer-enabled` |
+| Viewer Username | `#security-viewer-user` |
+| Viewer Password | `#security-viewer-pass` |
+| OTA Password | `#security-ota-pass` |
+| Save Users | `#save-security-btn` |
+| Security Status | `#security-status-text` |
+
+### 3.9 Config Management
+
+| Elemento | Seletor Cypress |
+|---|---|
+| Export Config | `#export-config-btn` |
+| Import Config | `#import-config-btn` |
+| Import File Input | `#import-config-file` |
+| Reset Network | `#reset-network-config-btn` |
+| Reset All Config | `#reset-all-config-btn` |
+
+### 3.10 System Event Log
+
+| Elemento | Seletor Cypress |
+|---|---|
+| Filter ALL | `[data-filter="ALL"]` |
+| Filter AUTH | `[data-filter="AUTH"]` |
+| Filter NET | `[data-filter="NET"]` |
+| Filter DAC | `[data-filter="DAC"]` |
+| Filter RELAY | `[data-filter="RELAY"]` |
+| Clear Logs | `#clear-logs-btn` |
+| Export Logs | `#download-logs-btn` |
+| Log Container | `#log-container` |
+| Prev Page | `#log-prev-btn` |
+| Next Page | `#log-next-btn` |
+| Page Status | `#log-page-status` |
+
+### 3.11 Overlays
+
+| Elemento | Seletor Cypress |
+|---|---|
+| Login Overlay | `#login-overlay` |
+| Offline/Reconnecting | `#offline-overlay` |
+| Main Container | `#main-container` |
+| Toast Stack | `#toast-stack` |
+
+---
+
+## 4. Credenciais & Roles
+
+### Credenciais de Fábrica
+
+| Role | Username | Password | Nível |
+|---|---|---|---|
+| **ADMIN** | `admin` | `admin123` | 2 (Controlo total) |
+| **OPERATOR** | `operator` | `operator123` | 1 (Controlo de hardware) |
+| **VIEWER** | `viewer` | `viewer123` | 0 (Apenas leitura) |
+
+### Permissões por Role
+
+| Funcionalidade | VIEWER | OPERATOR | ADMIN |
+|---|:---:|:---:|:---:|
+| Ver dashboard | ✅ | ✅ | ✅ |
+| Ver estado relés/DAC | ✅ | ✅ | ✅ |
+| Ligar/desligar relés | ❌ | ✅ | ✅ |
+| Controlar DAC | ❌ | ✅ | ✅ |
+| Executar Step Ramp | ❌ | ✅ | ✅ |
+| Scan Wi-Fi | ❌ | ❌ | ✅ |
+| Salvar Wi-Fi | ❌ | ❌ | ✅ |
+| Gerir utilizadores | ❌ | ❌ | ✅ |
+| Export/Import config | ❌ | ❌ | ✅ |
+| Reset configuração | ❌ | ❌ | ✅ |
+
+### Fixtures
+
+```json
+// cypress/fixtures/admin-user.json
+{
+  "username": "admin",
+  "password": "admin123"
+}
+```
+
+```json
+// cypress/fixtures/operator-user.json
+{
+  "username": "operator",
+  "password": "operator123"
+}
+```
+
+```json
+// cypress/fixtures/viewer-user.json
+{
+  "username": "viewer",
+  "password": "viewer123"
+}
+```
+
+---
+
+## 5. Custom Commands
+
+### `cypress/support/commands.js`
+
+```javascript
+// ═══════════════════════════════════════════════════════════════
+//  LOGIN COMMANDS
+// ═══════════════════════════════════════════════════════════════
+
+Cypress.Commands.add('login', (username, password) => {
+  cy.visit('/');
+  cy.get('#login-overlay').should('be.visible');
+  cy.get('#login-username').clear().type(username);
+  cy.get('#login-password').clear().type(password);
+  cy.get('.login-btn').click();
+  cy.get('#main-container', { timeout: 15000 }).should('be.visible');
+  cy.get('#login-overlay').should('not.be.visible');
+});
+
+Cypress.Commands.add('loginAsAdmin', () => {
+  cy.fixture('admin-user').then(user => {
+    cy.login(user.username, user.password);
+  });
+});
+
+Cypress.Commands.add('loginAsOperator', () => {
+  cy.fixture('operator-user').then(user => {
+    cy.login(user.username, user.password);
+  });
+});
+
+Cypress.Commands.add('loginAsViewer', () => {
+  cy.fixture('viewer-user').then(user => {
+    cy.login(user.username, user.password);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  LOGOUT
+// ═══════════════════════════════════════════════════════════════
+
+Cypress.Commands.add('logout', () => {
+  cy.get('[data-cy=logout-btn]').click();
+  cy.get('#login-overlay').should('be.visible');
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  RELAY COMMANDS
+// ═══════════════════════════════════════════════════════════════
+
+Cypress.Commands.add('toggleRelay', (index) => {
+  cy.get(`[data-cy=relay-btn-${index}]`).click();
+});
+
+Cypress.Commands.add('assertRelayState', (index, expectedActive) => {
+  const selector = `[data-cy=relay-btn-${index}]`;
+  if (expectedActive) {
+    cy.get(selector).should('have.class', 'active');
+  } else {
+    cy.get(selector).should('not.have.class', 'active');
+  }
+});
+
+Cypress.Commands.add('resetAllRelays', () => {
+  cy.get('[data-cy=reset-all-relays-btn]').click();
+});
+
+Cypress.Commands.add('resetRelayGroup', (groupNumber) => {
+  cy.get(`[data-cy=reset-group-${groupNumber}-btn]`).click();
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  DAC COMMANDS
+// ═══════════════════════════════════════════════════════════════
+
+Cypress.Commands.add('setDacVoltage', (channel, voltage) => {
+  cy.get(`[data-cy=dac-num-${channel}]`).clear().type(voltage).trigger('change');
+});
+
+Cypress.Commands.add('setDacSlider', (channel, voltage) => {
+  cy.get(`[data-cy=dac-range-${channel}]`).invoke('val', voltage).trigger('input');
+});
+
+Cypress.Commands.add('assertDacVoltage', (channel, expectedVoltage) => {
+  cy.get(`[data-cy=dac-val-${channel}]`).should('contain', `${expectedVoltage}`);
+});
+
+Cypress.Commands.add('resetDac', (channel) => {
+  cy.get(`[data-cy=reset-dac-${channel}-btn]`).click();
+});
+
+Cypress.Commands.add('clickDacPreset', (channel, value) => {
+  cy.get(`[data-dac-preset="${channel}"][data-value="${value}"]`).click();
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  STEP RAMP
+// ═══════════════════════════════════════════════════════════════
+
+Cypress.Commands.add('executeStepRamp', () => {
+  cy.get('[data-cy=execute-stepwise-btn]').click();
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  API HELPERS (bypass UI)
+// ═══════════════════════════════════════════════════════════════
+
+Cypress.Commands.add('apiLogin', (username = 'admin', password = 'admin123') => {
+  const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+  Cypress.env('authHeader', authHeader);
+  return cy.request({
+    method: 'GET',
+    url: '/api/ws-auth',
+    headers: { Authorization: authHeader }
+  });
+});
+
+Cypress.Commands.add('apiGetState', () => {
+  return cy.request({
+    method: 'GET',
+    url: '/api/state',
+    headers: { Authorization: Cypress.env('authHeader') }
+  });
+});
+
+Cypress.Commands.add('apiGetHealth', () => {
+  return cy.request({
+    method: 'GET',
+    url: '/api/health',
+    headers: { Authorization: Cypress.env('authHeader') }
+  });
+});
+
+Cypress.Commands.add('apiResetConfig', (scope = 'all') => {
+  return cy.request({
+    method: 'POST',
+    url: '/api/config/reset',
+    headers: {
+      Authorization: Cypress.env('authHeader'),
+      'Content-Type': 'application/json'
+    },
+    body: { scope }
+  });
+});
+
+Cypress.Commands.add('apiResetHardware', () => {
+  return cy.request({
+    method: 'POST',
+    url: '/api/config/reset',
+    headers: {
+      Authorization: Cypress.env('authHeader'),
+      'Content-Type': 'application/json'
+    },
+    body: { scope: 'hardware' }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  TOAST & WEBSOCKET ASSERTIONS
+// ═══════════════════════════════════════════════════════════════
+
+Cypress.Commands.add('assertToast', (title, tone = 'success') => {
+  cy.get('#toast-stack .toast')
+    .should('be.visible')
+    .and('have.class', tone)
+    .find('.toast-title')
+    .should('contain', title);
+});
+
+Cypress.Commands.add('waitForWebSocket', () => {
+  cy.get('#ws-mode-chip', { timeout: 15000 }).should('contain', 'LIVE');
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  NETWORK PANEL
+// ═══════════════════════════════════════════════════════════════
+
+Cypress.Commands.add('openNetworkPanel', () => {
+  cy.get('#network-panel-body').then($el => {
+    if (!$el.hasClass('open')) {
+      cy.get('#network-panel-toggle').click();
+    }
+  });
+  cy.get('#network-panel-body').should('have.class', 'open');
+});
+```
+
+### `cypress/support/e2e.js`
+
+```javascript
+import './commands';
+
+// Suprimir erros de WebSocket não-críticos
+Cypress.on('uncaught:exception', (err) => {
+  if (err.message.includes('WebSocket') || err.message.includes('ws://')) {
+    return false;
+  }
+});
+```
+
+---
+
+## 6. Testes: Login & Autenticação
+
+### `cypress/e2e/login.cy.js`
+
+```javascript
+describe('Login & Autenticação', () => {
+
+  beforeEach(() => {
+    cy.visit('/');
+  });
+
+  it('deve exibir o ecrã de login ao carregar', () => {
+    cy.get('#login-overlay').should('be.visible');
+    cy.get('#main-container').should('not.be.visible');
+    cy.get('.login-brand-mark').should('contain', 'SIEMENS');
+    cy.get('.login-brand-subtitle').should('contain', 'SICHARGE D');
+    cy.get('.login-title').should('contain', 'Secure Login');
+  });
+
+  it('deve ter o campo username pré-preenchido com "admin"', () => {
+    cy.get('#login-username').should('have.value', 'admin');
+  });
+
+  it('deve fazer login com credenciais de admin', () => {
+    cy.loginAsAdmin();
+    cy.get('#main-container').should('be.visible');
+    cy.waitForWebSocket();
+  });
+
+  it('deve fazer login com credenciais de operator', () => {
+    cy.loginAsOperator();
+    cy.get('#main-container').should('be.visible');
+  });
+
+  it('deve fazer login com credenciais de viewer', () => {
+    cy.loginAsViewer();
+    cy.get('#main-container').should('be.visible');
+  });
+
+  it('deve rejeitar credenciais inválidas', () => {
+    cy.get('#login-username').clear().type('hacker');
+    cy.get('#login-password').type('wrong_password');
+    cy.get('.login-btn').click();
+    cy.get('#login-overlay').should('be.visible');
+    cy.get('#main-container').should('not.be.visible');
+  });
+
+  it('deve fazer logout corretamente', () => {
+    cy.loginAsAdmin();
+    cy.logout();
+    cy.get('#login-overlay').should('be.visible');
+    cy.get('#main-container').should('not.be.visible');
+  });
+
+  it('deve autenticar via API e receber token válido', () => {
+    cy.apiLogin('admin', 'admin123').then(response => {
+      expect(response.status).to.eq(200);
+      expect(response.body).to.have.property('token');
+      expect(response.body).to.have.property('role', 'admin');
+      expect(response.body).to.have.property('username', 'admin');
+      expect(response.body.token).to.have.length(16);
+    });
+  });
+
+  it('deve retornar 401 para credenciais inválidas via API', () => {
+    cy.request({
+      method: 'GET',
+      url: '/api/ws-auth',
+      headers: { Authorization: 'Basic ' + btoa('fake:wrongpass') },
+      failOnStatusCode: false
+    }).then(response => {
+      expect(response.status).to.eq(401);
+    });
+  });
+
+});
+```
+
+---
+
+## 7. Testes: Relay Control (12 Relés)
+
+### `cypress/e2e/relays.cy.js`
+
+```javascript
+describe('Relay Control — 12 Relés', () => {
+
+  beforeEach(() => {
+    cy.loginAsAdmin();
+    cy.waitForWebSocket();
+    cy.resetAllRelays();
+    cy.wait(500);
+  });
+
+  // ── Toggle Individual ──────────────────────────────────
+
+  it('deve ligar e desligar o Relé 0 (DC1 FB)', () => {
+    cy.assertRelayState(0, false);
+    cy.toggleRelay(0);
+    cy.assertRelayState(0, true);
+    cy.toggleRelay(0);
+    cy.assertRelayState(0, false);
+  });
+
+  it('deve ligar todos os 12 relés individualmente', () => {
+    for (let i = 0; i < 12; i++) {
+      cy.toggleRelay(i);
+      cy.wait(200);
+    }
+    for (let i = 0; i < 12; i++) {
+      cy.assertRelayState(i, true);
+    }
+  });
+
+  // ── Reset por Grupo ────────────────────────────────────
+
+  it('deve fazer reset do Grupo 1 (Relés 0-3)', () => {
+    for (let i = 0; i < 4; i++) {
+      cy.toggleRelay(i);
+      cy.wait(150);
+    }
+    for (let i = 0; i < 4; i++) {
+      cy.assertRelayState(i, true);
+    }
+    cy.resetRelayGroup(1);
+    cy.wait(500);
+    for (let i = 0; i < 4; i++) {
+      cy.assertRelayState(i, false);
+    }
+  });
+
+  it('deve fazer reset do Grupo 2 (Relés 4-7)', () => {
+    for (let i = 4; i < 8; i++) {
+      cy.toggleRelay(i);
+      cy.wait(150);
+    }
+    cy.resetRelayGroup(2);
+    cy.wait(500);
+    for (let i = 4; i < 8; i++) {
+      cy.assertRelayState(i, false);
+    }
+  });
+
+  it('deve fazer reset do Grupo 3 (Relés 8-11)', () => {
+    for (let i = 8; i < 12; i++) {
+      cy.toggleRelay(i);
+      cy.wait(150);
+    }
+    cy.resetRelayGroup(3);
+    cy.wait(500);
+    for (let i = 8; i < 12; i++) {
+      cy.assertRelayState(i, false);
+    }
+  });
+
+  // ── Reset All ──────────────────────────────────────────
+
+  it('deve fazer reset de TODOS os relés de uma vez', () => {
+    cy.toggleRelay(0);
+    cy.toggleRelay(5);
+    cy.toggleRelay(11);
+    cy.wait(300);
+    cy.resetAllRelays();
+    cy.wait(500);
+    for (let i = 0; i < 12; i++) {
+      cy.assertRelayState(i, false);
+    }
+  });
+
+  // ── UI Visual ──────────────────────────────────────────
+
+  it('deve exibir os nomes corretos dos relés', () => {
+    const names = [
+      'DC1 FB', 'DC2 FB', 'DC3 FB', 'DC4 FB',
+      'DC1 24V', 'DC2 24V', 'DC3 24V', 'DC4 24V',
+      'MG1 FB', 'MG2 FB', 'MG3 FB', 'MG4 FB'
+    ];
+    names.forEach((name, i) => {
+      cy.get(`[data-cy=relay-btn-${i}]`).should('contain', name);
+    });
+  });
+
+  it('deve atualizar o ops-relay-card com a contagem correta', () => {
+    cy.toggleRelay(0);
+    cy.toggleRelay(1);
+    cy.wait(500);
+    cy.get('#ops-relay-value').should('contain', '2');
+  });
+
+  // ── Persistência ───────────────────────────────────────
+
+  it('deve manter o estado dos relés após re-login', () => {
+    cy.toggleRelay(3);
+    cy.wait(500);
+    cy.assertRelayState(3, true);
+    cy.logout();
+    cy.loginAsAdmin();
+    cy.waitForWebSocket();
+    cy.assertRelayState(3, true);
+    cy.resetAllRelays();
+  });
+
+});
+```
+
+---
+
+## 8. Testes: DAC Voltage Control
+
+### `cypress/e2e/dac.cy.js`
+
+```javascript
+describe('DAC Voltage Control', () => {
+
+  beforeEach(() => {
+    cy.loginAsAdmin();
+    cy.waitForWebSocket();
+  });
+
+  // ── DAC 1: TF Voltage (2.5V – 4.0V) ──────────────────
+
+  describe('DAC 1 — TF Voltage', () => {
+
+    it('deve mostrar o valor inicial de 2.5V', () => {
+      cy.assertDacVoltage(1, '2.5');
+    });
+
+    it('deve alterar a voltagem via input numérico', () => {
+      cy.setDacVoltage(1, '3.2');
+      cy.wait(600);
+      cy.assertDacVoltage(1, '3.2');
+    });
+
+    it('deve alterar a voltagem via slider', () => {
+      cy.setDacSlider(1, 3.5);
+      cy.wait(600);
+      cy.assertDacVoltage(1, '3.5');
+    });
+
+    it('deve aplicar preset DEFAULT (2.5V)', () => {
+      cy.clickDacPreset(1, '2.5');
+      cy.wait(600);
+      cy.assertDacVoltage(1, '2.5');
+    });
+
+    it('deve aplicar preset MID (3.2V)', () => {
+      cy.clickDacPreset(1, '3.2');
+      cy.wait(600);
+      cy.assertDacVoltage(1, '3.2');
+    });
+
+    it('deve aplicar preset MAX (4.0V)', () => {
+      cy.clickDacPreset(1, '4.0');
+      cy.wait(600);
+      cy.assertDacVoltage(1, '4.0');
+    });
+
+    it('deve fazer reset para o valor mínimo (2.5V)', () => {
+      cy.setDacVoltage(1, '3.8');
+      cy.wait(600);
+      cy.resetDac(1);
+      cy.wait(600);
+      cy.assertDacVoltage(1, '2.5');
+    });
+
+    it('deve mostrar chip READY após alteração', () => {
+      cy.setDacVoltage(1, '3.0');
+      cy.wait(1000);
+      cy.get('#dac-chip-1').should('contain', 'READY');
+    });
+
+  });
+
+  // ── DAC 2: Dispenser Temp (4.0V – 9.0V) ──────────────
+
+  describe('DAC 2 — Dispenser Temp', () => {
+
+    it('deve mostrar o valor inicial de 4.0V', () => {
+      cy.assertDacVoltage(2, '4.0');
+    });
+
+    it('deve alterar a voltagem via input numérico', () => {
+      cy.setDacVoltage(2, '6.5');
+      cy.wait(600);
+      cy.assertDacVoltage(2, '6.5');
+    });
+
+    it('deve aplicar preset MID (6.5V)', () => {
+      cy.clickDacPreset(2, '6.5');
+      cy.wait(600);
+      cy.assertDacVoltage(2, '6.5');
+    });
+
+    it('deve aplicar preset MAX (9.0V)', () => {
+      cy.clickDacPreset(2, '9.0');
+      cy.wait(600);
+      cy.assertDacVoltage(2, '9.0');
+    });
+
+    it('deve fazer reset para o valor mínimo (4.0V)', () => {
+      cy.setDacVoltage(2, '7.5');
+      cy.wait(600);
+      cy.resetDac(2);
+      cy.wait(600);
+      cy.assertDacVoltage(2, '4.0');
+    });
+
+  });
+
+  // ── Sincronização UI ──────────────────────────────────
+
+  it('slider e input numérico devem estar sincronizados (DAC 1)', () => {
+    cy.setDacSlider(1, 3.5);
+    cy.wait(300);
+    cy.get('[data-cy=dac-num-1]').should('have.value', '3.5');
+  });
+
+  it('deve atualizar o ops-dac-card com as voltagens', () => {
+    cy.setDacVoltage(1, '3.0');
+    cy.wait(600);
+    cy.get('#ops-dac-value').should('contain', '3.0');
+  });
+
+});
+```
+
+---
+
+## 9. Testes: Step Ramp Program
+
+### `cypress/e2e/step-ramp.cy.js`
+
+```javascript
+describe('Step Ramp Program — Dispenser Temp', () => {
+
+  beforeEach(() => {
+    cy.loginAsAdmin();
+    cy.waitForWebSocket();
+    cy.resetDac(2);
+    cy.wait(500);
+  });
+
+  it('deve iniciar o programa step ramp ao clicar no botão', () => {
+    cy.get('[data-cy=execute-stepwise-btn]')
+      .should('be.visible')
+      .and('contain', 'DISPENSER TEMP STEP');
+    cy.executeStepRamp();
+    cy.get('#dac-chip-2').should('contain', 'RUNNING');
+  });
+
+  it('deve desativar o botão durante a execução', () => {
+    cy.executeStepRamp();
+    cy.get('[data-cy=execute-stepwise-btn]').should('be.disabled');
+  });
+
+  it('deve atualizar a voltagem progressivamente (4.0V → 9.0V)', () => {
+    cy.executeStepRamp();
+    cy.wait(6000); // 1 step de 5 segundos
+    cy.get('[data-cy=dac-val-2]').invoke('text').then(text => {
+      const voltage = parseFloat(text);
+      expect(voltage).to.be.greaterThan(4.0);
+    });
+  });
+
+  it('deve regressar ao valor inicial após completar o programa', () => {
+    cy.executeStepRamp();
+    // 10 steps × 5000ms = ~50s total
+    cy.wait(55000);
+    cy.assertDacVoltage(2, '4.0');
+    cy.get('#dac-chip-2').should('contain', 'READY');
+    cy.get('[data-cy=execute-stepwise-btn]').should('not.be.disabled');
+  });
+
+  // WebSocket command sent:
+  // { cmd: "step_ramp", channel: 2, start: 4.0, target: 9.0, step: 0.5, duration: 5000 }
+  // Each 5s: 4.0 → 4.5 → 5.0 → ... → 9.0 → back to 4.0
+
+});
+```
+
+> **TIP:** O teste completo do Step Ramp demora ~55 segundos. Para CI rápido,
+> verifique apenas o início e o estado do chip, em vez de aguardar a conclusão.
+
+---
+
+## 10. Testes: WebSocket Protocol
+
+### `cypress/e2e/websocket.cy.js`
+
+```javascript
+describe('WebSocket Protocol', () => {
+
+  it('deve estabelecer conexão WebSocket após login', () => {
+    cy.loginAsAdmin();
+    cy.waitForWebSocket();
+    cy.get('#ws-mode-chip').should('contain', 'LIVE');
+  });
+
+  it('deve receber estado inicial (init) via WebSocket', () => {
+    cy.loginAsAdmin();
+    cy.waitForWebSocket();
+    cy.get('[data-cy=relay-btn-0]').should('exist');
+    cy.get('[data-cy=dac-val-1]').should('not.be.empty');
+    cy.get('[data-cy=dac-val-2]').should('not.be.empty');
+  });
+
+  it('deve receber broadcast updates em tempo real', () => {
+    cy.loginAsAdmin();
+    cy.waitForWebSocket();
+    cy.toggleRelay(5);
+    cy.assertRelayState(5, true);
+    cy.toggleRelay(5);
+  });
+
+  it('deve verificar estado via API REST', () => {
+    cy.apiLogin().then(() => {
+      cy.apiGetState().then(response => {
+        expect(response.status).to.eq(200);
+        expect(response.body).to.have.property('relays');
+        expect(response.body.relays).to.be.an('array');
+        expect(response.body.relays).to.have.length(12);
+        expect(response.body).to.have.property('v1');
+        expect(response.body).to.have.property('v2');
+        expect(response.body).to.have.property('wifiMode');
+      });
+    });
+  });
+
+  it('deve verificar health do sistema via API', () => {
+    cy.apiLogin().then(() => {
+      cy.apiGetHealth().then(response => {
+        expect(response.status).to.eq(200);
+        expect(response.body).to.have.property('wifiConnected');
+        expect(response.body).to.have.property('heap');
+        expect(response.body.heap).to.be.greaterThan(0);
+      });
+    });
+  });
+
+});
+```
+
+---
+
+## 11. Testes: WiFi Management
+
+### `cypress/e2e/wifi.cy.js`
+
+```javascript
+describe('WiFi Management', () => {
+
+  beforeEach(() => {
+    cy.loginAsAdmin();
+    cy.waitForWebSocket();
+    cy.openNetworkPanel();
+  });
+
+  it('deve exibir o status Wi-Fi atual', () => {
+    cy.get('#wifi-status').should('exist');
+  });
+
+  it('deve abrir e fechar o painel de rede', () => {
+    cy.get('#network-panel-body').should('have.class', 'open');
+    cy.get('#network-panel-toggle').click();
+    cy.get('#network-panel-body').should('not.have.class', 'open');
+  });
+
+  it('deve iniciar o scan de redes Wi-Fi', () => {
+    cy.get('[data-cy=scan-wifi-btn]').click();
+    cy.get('#wifi-list', { timeout: 20000 }).should('not.be.empty');
+  });
+
+  it('deve permitir introduzir SSID e password manualmente', () => {
+    cy.get('[data-cy=wifi-ssid-input]').clear().type('TestNetwork');
+    cy.get('[data-cy=wifi-pass-input]').clear().type('TestPassword123');
+    cy.get('[data-cy=wifi-ssid-input]').should('have.value', 'TestNetwork');
+    cy.get('[data-cy=wifi-pass-input]').should('have.value', 'TestPassword123');
+    // NÃO clicar "Save & Connect" em teste automático!
+  });
+
+  it('deve verificar Wi-Fi status via API', () => {
+    cy.apiLogin().then(() => {
+      cy.request({
+        method: 'GET',
+        url: '/api/wifi/status',
+        headers: { Authorization: Cypress.env('authHeader') }
+      }).then(response => {
+        expect(response.status).to.eq(200);
+        expect(response.body).to.have.property('ssid');
+        expect(response.body).to.have.property('ip');
+        expect(response.body).to.have.property('rssi');
+        expect(response.body).to.have.property('mode');
+      });
+    });
+  });
+
+});
+```
+
+> **CAUTION:** NUNCA execute `cy.get('[data-cy=save-connect-btn]').click()` num teste automático!
+> Isso altera as definições Wi-Fi e pode perder a conectividade.
+
+---
+
+## 12. Testes: Security & Users
+
+### `cypress/e2e/security.cy.js`
+
+```javascript
+describe('Security & User Management', () => {
+
+  beforeEach(() => {
+    cy.loginAsAdmin();
+    cy.waitForWebSocket();
+    cy.openNetworkPanel();
+  });
+
+  it('deve carregar os dados de segurança via API', () => {
+    cy.apiLogin().then(() => {
+      cy.request({
+        method: 'GET',
+        url: '/api/security/status',
+        headers: { Authorization: Cypress.env('authHeader') }
+      }).then(response => {
+        expect(response.status).to.eq(200);
+        expect(response.body.users).to.have.length(3);
+        const admin = response.body.users[0];
+        expect(admin.role).to.eq('admin');
+        expect(admin.enabled).to.be.true;
+        expect(response.body).to.have.property('hasOtaPassword');
+      });
+    });
+  });
+
+  it('deve exibir os campos de segurança no painel', () => {
+    cy.get('#security-admin-user').should('exist');
+    cy.get('#security-admin-pass').should('exist');
+    cy.get('#security-operator-user').should('exist');
+    cy.get('#security-operator-pass').should('exist');
+    cy.get('#security-viewer-user').should('exist');
+    cy.get('#security-viewer-pass').should('exist');
+    cy.get('#security-ota-pass').should('exist');
+    cy.get('#save-security-btn').should('exist');
+  });
+
+  it('deve rejeitar password com menos de 8 caracteres via API', () => {
+    cy.apiLogin().then(() => {
+      cy.request({
+        method: 'POST',
+        url: '/api/security/users',
+        headers: {
+          Authorization: Cypress.env('authHeader'),
+          'Content-Type': 'application/json'
+        },
+        body: {
+          users: [
+            { username: 'admin', password: 'short', enabled: true },
+            { username: 'operator', password: 'operator123', enabled: true },
+            { username: 'viewer', password: 'viewer123', enabled: true }
+          ]
+        },
+        failOnStatusCode: false
+      }).then(response => {
+        expect(response.status).to.eq(400);
+      });
+    });
+  });
+
+  it('deve rejeitar usernames duplicados via API', () => {
+    cy.apiLogin().then(() => {
+      cy.request({
+        method: 'POST',
+        url: '/api/security/users',
+        headers: {
+          Authorization: Cypress.env('authHeader'),
+          'Content-Type': 'application/json'
+        },
+        body: {
+          users: [
+            { username: 'admin', password: 'admin12345', enabled: true },
+            { username: 'admin', password: 'admin12345', enabled: true },
+            { username: 'viewer', password: 'viewer123', enabled: true }
+          ]
+        },
+        failOnStatusCode: false
+      }).then(response => {
+        expect(response.status).to.eq(400);
+      });
+    });
+  });
+
+});
+```
+
+---
+
+## 13. Testes: Config Export/Import/Reset
+
+### `cypress/e2e/config.cy.js`
+
+```javascript
+describe('Configuration Management', () => {
+
+  beforeEach(() => {
+    cy.loginAsAdmin();
+    cy.waitForWebSocket();
+    cy.openNetworkPanel();
+  });
+
+  it('deve exportar a configuração via API', () => {
+    cy.apiLogin().then(() => {
+      cy.request({
+        method: 'GET',
+        url: '/api/config/export',
+        headers: { Authorization: Cypress.env('authHeader') }
+      }).then(response => {
+        expect(response.status).to.eq(200);
+        expect(response.body).to.have.property('network');
+        expect(response.body).to.have.property('security');
+        expect(response.body).to.have.property('hardware');
+        expect(response.body.network).to.have.property('ssid');
+        expect(response.body.network).to.have.property('deviceId');
+        expect(response.body.security.users).to.have.length(3);
+        expect(response.body.hardware).to.have.property('dac1');
+        expect(response.body.hardware).to.have.property('dac2');
+      });
+    });
+  });
+
+  it('deve importar uma configuração válida via API', () => {
+    cy.apiLogin().then(() => {
+      cy.request({
+        method: 'POST',
+        url: '/api/config/import',
+        headers: {
+          Authorization: Cypress.env('authHeader'),
+          'Content-Type': 'application/json'
+        },
+        body: {
+          hardware: { relayMask: 0, dac1: 2.5, dac2: 4.0 }
+        }
+      }).then(response => {
+        expect(response.status).to.eq(200);
+        expect(response.body.status).to.eq('ok');
+      });
+    });
+  });
+
+  it('deve resetar hardware via API (relés + DAC)', () => {
+    cy.apiLogin().then(() => {
+      cy.apiResetHardware().then(response => {
+        expect(response.status).to.eq(200);
+        expect(response.body.status).to.eq('ok');
+      });
+    });
+  });
+
+  it('deve retornar erro para scope inválido', () => {
+    cy.apiLogin().then(() => {
+      cy.request({
+        method: 'POST',
+        url: '/api/config/reset',
+        headers: {
+          Authorization: Cypress.env('authHeader'),
+          'Content-Type': 'application/json'
+        },
+        body: { scope: 'invalid_scope' },
+        failOnStatusCode: false
+      }).then(response => {
+        expect(response.status).to.eq(400);
+        expect(response.body.status).to.eq('invalid_scope');
+      });
+    });
+  });
+
+  it('deve ter botões de export/import/reset visíveis', () => {
+    cy.get('#export-config-btn').should('be.visible');
+    cy.get('#import-config-btn').should('be.visible');
+    cy.get('#reset-network-config-btn').should('be.visible');
+    cy.get('#reset-all-config-btn').should('be.visible');
+  });
+
+});
+```
+
+---
+
+## 14. Testes: System Event Log
+
+### `cypress/e2e/logs.cy.js`
+
+```javascript
+describe('System Event Log', () => {
+
+  beforeEach(() => {
+    cy.loginAsAdmin();
+    cy.waitForWebSocket();
+  });
+
+  it('deve ter os filtros de log visíveis', () => {
+    ['ALL', 'AUTH', 'NET', 'DAC', 'RELAY'].forEach(filter => {
+      cy.get(`[data-filter="${filter}"]`).should('be.visible');
+    });
+  });
+
+  it('deve ter o filtro ALL ativo por defeito', () => {
+    cy.get('[data-filter="ALL"]').should('have.class', 'active');
+  });
+
+  it('deve filtrar logs por categoria RELAY', () => {
+    cy.toggleRelay(0);
+    cy.wait(300);
+    cy.toggleRelay(0);
+    cy.wait(300);
+    cy.get('[data-filter="RELAY"]').click();
+    cy.get('[data-filter="RELAY"]').should('have.class', 'active');
+    cy.get('#log-container').find('.log-entry[data-type="RELAY"]').should('exist');
+  });
+
+  it('deve filtrar logs por categoria DAC', () => {
+    cy.setDacVoltage(1, '3.0');
+    cy.wait(600);
+    cy.get('[data-filter="DAC"]').click();
+    cy.get('#log-container').find('.log-entry[data-type="DAC"]').should('exist');
+  });
+
+  it('deve limpar todos os logs ao clicar CLEAR', () => {
+    cy.toggleRelay(1);
+    cy.wait(200);
+    cy.toggleRelay(1);
+    cy.wait(200);
+    cy.get('[data-cy=clear-logs-btn]').click();
+    cy.get('#log-container').find('.log-entry').should('not.exist');
+  });
+
+  it('deve ter botão de export de logs visível', () => {
+    cy.get('#download-logs-btn').should('be.visible').and('contain', 'EXPORT');
+  });
+
+});
+```
+
+---
+
+## 15. Testes: Role-Based Access Control
+
+### `cypress/e2e/roles.cy.js`
+
+```javascript
+describe('Role-Based Access Control (RBAC)', () => {
+
+  // ── Viewer ─────────────────────────────────────────────
+
+  describe('Viewer — Apenas Leitura', () => {
+    beforeEach(() => {
+      cy.loginAsViewer();
+      cy.waitForWebSocket();
+    });
+
+    it('deve ver a dashboard', () => {
+      cy.get('#main-container').should('be.visible');
+    });
+
+    it('deve ter relés desativados', () => {
+      cy.get('[data-cy=relay-btn-0]').should('be.disabled');
+    });
+
+    it('deve ter DAC controls desativados', () => {
+      cy.get('[data-cy=dac-num-1]').should('be.disabled');
+      cy.get('[data-cy=dac-range-1]').should('be.disabled');
+    });
+
+    it('deve ter step ramp desativado', () => {
+      cy.get('[data-cy=execute-stepwise-btn]').should('be.disabled');
+    });
+
+    it('deve ter reset buttons desativados', () => {
+      cy.get('[data-cy=reset-all-relays-btn]').should('be.disabled');
+      cy.get('[data-cy=reset-dac-1-btn]').should('be.disabled');
+    });
+
+    it('deve retornar 403 ao aceder segurança via API', () => {
+      cy.apiLogin('viewer', 'viewer123').then(() => {
+        cy.request({
+          method: 'GET',
+          url: '/api/security/status',
+          headers: { Authorization: Cypress.env('authHeader') },
+          failOnStatusCode: false
+        }).then(response => {
+          expect(response.status).to.eq(403);
+        });
+      });
+    });
+  });
+
+  // ── Operator ───────────────────────────────────────────
+
+  describe('Operator — Controlo de Hardware', () => {
+    beforeEach(() => {
+      cy.loginAsOperator();
+      cy.waitForWebSocket();
+    });
+
+    it('deve poder controlar relés', () => {
+      cy.get('[data-cy=relay-btn-0]').should('not.be.disabled');
+      cy.toggleRelay(0);
+      cy.assertRelayState(0, true);
+      cy.toggleRelay(0);
+    });
+
+    it('deve poder controlar DAC', () => {
+      cy.get('[data-cy=dac-num-1]').should('not.be.disabled');
+    });
+
+    it('NÃO deve poder aceder a configurações WiFi', () => {
+      cy.get('[data-cy=scan-wifi-btn]').should('be.disabled');
+    });
+
+    it('NÃO deve poder alterar users via API', () => {
+      cy.apiLogin('operator', 'operator123').then(() => {
+        cy.request({
+          method: 'GET',
+          url: '/api/security/status',
+          headers: { Authorization: Cypress.env('authHeader') },
+          failOnStatusCode: false
+        }).then(response => {
+          expect(response.status).to.eq(403);
+        });
+      });
+    });
+  });
+
+  // ── Admin ──────────────────────────────────────────────
+
+  describe('Admin — Controlo Total', () => {
+    beforeEach(() => {
+      cy.loginAsAdmin();
+      cy.waitForWebSocket();
+    });
+
+    it('deve poder controlar relés', () => {
+      cy.get('[data-cy=relay-btn-0]').should('not.be.disabled');
+    });
+
+    it('deve poder controlar DAC', () => {
+      cy.get('[data-cy=dac-num-1]').should('not.be.disabled');
+    });
+
+    it('deve poder aceder a configurações WiFi', () => {
+      cy.openNetworkPanel();
+      cy.get('[data-cy=scan-wifi-btn]').should('not.be.disabled');
+    });
+
+    it('deve poder aceder a segurança via API', () => {
+      cy.apiLogin().then(() => {
+        cy.request({
+          method: 'GET',
+          url: '/api/security/status',
+          headers: { Authorization: Cypress.env('authHeader') }
+        }).then(response => {
+          expect(response.status).to.eq(200);
+        });
+      });
+    });
+  });
+
+});
+```
+
+---
+
+## 16. API REST — Referência Completa
+
+### Autenticação HTTP
+
+Todos os endpoints usam HTTP Basic Authentication:
+```
+Authorization: Basic <base64(username:password)>
+```
+
+Exemplo para admin: `Authorization: Basic YWRtaW46YWRtaW4xMjM=`
+
+### Endpoints
+
+| Método | Path | Role | Descrição |
+|---|---|---|---|
+| `GET` | `/` | — | Serve `index.html` |
+| `GET` | `/api/ws-auth` | VIEWER+ | Gera token WebSocket |
+| `GET` | `/api/security/status` | ADMIN | Estado dos utilizadores |
+| `POST` | `/api/security/users` | ADMIN | Atualizar utilizadores |
+| `GET` | `/api/health` | VIEWER+ | Health check |
+| `GET` | `/api/state` | VIEWER+ | Estado relés + DAC |
+| `GET` | `/api/system/info` | VIEWER+ | Info do chip |
+| `GET` | `/api/wifi/status` | VIEWER+ | Estado Wi-Fi |
+| `GET` | `/api/wifi/scan` | VIEWER+ | Lista redes |
+| `POST` | `/api/wifi/startScan` | ADMIN | Inicia scan |
+| `POST` | `/api/wifi/save` | ADMIN | Salva Wi-Fi |
+| `GET` | `/api/config/export` | ADMIN | Export config |
+| `POST` | `/api/config/import` | ADMIN | Import config |
+| `POST` | `/api/config/reset` | ADMIN | Reset config |
+
+### Respostas de Erro
+
+| Status | Body | Descrição |
+|---|---|---|
+| `401` | `{"status":"unauthorized"}` | Credenciais inválidas |
+| `403` | `{"status":"forbidden"}` | Permissão insuficiente |
+| `400` | `{"status":"invalid_json"}` | JSON malformado |
+| `400` | `{"status":"invalid_scope"}` | Scope inválido |
+| `500` | `{"status":"error"}` | Erro interno |
+
+### Reset Scopes
+
+| Scope | Efeito | Restart? |
+|---|---|---|
+| `"security"` | Reset users para defaults | Não |
+| `"hardware"` | Reset relés (OFF) + DAC (min) | Não |
+| `"network"` | Reset WiFi/MQTT config | Sim |
+| `"all"` | Reset tudo | Sim |
+
+---
+
+## 17. WebSocket Protocol — Referência Completa
+
+### Conexão: `ws://<IP>:81/` (máx. 8 clientes)
+
+### Client → Server
+
+| Comando | JSON | Role |
+|---|---|---|
+| Auth | `{ "cmd": "auth", "token": "<hex>" }` | — |
+| Relay | `{ "cmd": "relay", "idx": 0-11, "state": bool }` | OPERATOR+ |
+| Relay All | `{ "cmd": "relay_all", "state": bool }` | OPERATOR+ |
+| Relay Mask | `{ "cmd": "relay_mask", "mask": uint16 }` | OPERATOR+ |
+| DAC | `{ "cmd": "dac", "channel": 1\|2, "voltage": float }` | OPERATOR+ |
+| DAC All | `{ "cmd": "dac_all", "v1": float, "v2": float }` | OPERATOR+ |
+| Ramp | `{ "cmd": "ramp", "channel": 1\|2, "target": float, "duration": ms }` | OPERATOR+ |
+| Step Ramp | `{ "cmd": "step_ramp", "channel": 1\|2, "start": float, "target": float, "step": float, "duration": ms }` | OPERATOR+ |
+
+### Server → Client
+
+| Tipo | Campos |
+|---|---|
+| Auth OK | `{ "type": "auth", "ok": true, "role": "...", "username": "..." }` |
+| Init | `{ "type": "init", "relays": [...], "v1", "v2", "wifiMode", "mqtt", "modbus", "role", "username" }` |
+| Update | `{ "type": "update", "relays"?: [...], "idx"?: N, "state"?: bool, "v1", "v2", "mqtt", "wifiMode", "modbus" }` |
+| Error | `{ "type": "error", "message": "unauthorized"\|"forbidden" }` |
+
+### Limites de Voltagem
+
+| Canal | Min | Max |
+|---|---|---|
+| DAC 1 (TF Voltage) | 2.5V | 4.0V |
+| DAC 2 (Dispenser Temp) | 4.0V | 9.0V |
+
+---
+
+## 18. Troubleshooting & Tips
+
+### Problemas Comuns
+
+| Problema | Causa | Solução |
+|---|---|---|
+| Timeout no login | ESP32 ainda a arrancar | Aumentar `defaultCommandTimeout` para 15000 |
+| WebSocket não conecta | Porta 81 bloqueada | Verificar firewall / rede |
+| Relay toggle sem efeito | Role VIEWER ativo | Verificar login admin/operator |
+| DAC value não atualiza | Debounce ativo (500ms) | Adicionar `cy.wait(600)` após alteração |
+| Toast desaparece rápido | Duração padrão 2600ms | Capturar com `should('be.visible')` imediato |
+| Step Ramp muito lento | 10 steps × 5000ms = 50s | Usar `{ timeout: 60000 }` |
+| `cy.request` retorna 401 | Auth header em falta | Usar `cy.apiLogin()` primeiro |
+
+### Boas Práticas
+
+1. **Sempre resetar estado no `beforeEach`** — `cy.resetAllRelays()` e `cy.resetDac()`
+2. **Usar `data-cy` selectors** — A dashboard já tem `data-cy` em todos os elementos interativos
+3. **Respeitar debounce** — DAC tem debounce de ~500ms, adicione `cy.wait(600)`
+4. **Não testar Wi-Fi Save** — Alterar Wi-Fi desconecta o ESP32
+5. **Fixtures para credenciais** — Fácil manutenção
+6. **API tests para validação rápida** — `cy.request()` sem UI overhead
+7. **Screenshots em falha** — Configurado com `screenshotOnRunFailure: true`
+
+### Executar Testes
+
+```bash
+# Modo interativo (browser)
+npx cypress open
+
+# Modo headless (CI/CD)
+npx cypress run
+
+# Apenas um ficheiro
+npx cypress run --spec "cypress/e2e/relays.cy.js"
+
+# Com browser específico
+npx cypress run --browser chrome
+```
+
+---
+
+> **© 2026 SIEMENS AG | SICHARGE D Monitor v1.6**
+> Documentação gerada para automação Cypress — @Canditos

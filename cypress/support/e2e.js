@@ -1,6 +1,6 @@
 const DEFAULT_STATE = {
   type: "init",
-  relays: [true, false, true, false, false, true, false, true],
+  relays: [true, false, true, false, false, true, false, true, false, true, false, true],
   v1: 2.4,
   v2: 6.5,
   mqtt: true,

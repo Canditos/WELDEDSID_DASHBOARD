@@ -33,7 +33,7 @@ describe("Relay controls", () => {
     cy.get("[data-cy='reset-group-2-btn']").click();
     cy.window().its("__wsMessages").should((messages) => {
       const resets = messages.filter((msg) => msg.cmd === "relay" && msg.state === false);
-      expect(resets.map((msg) => msg.idx)).to.include.members([4, 5]);
+      expect(resets.map((msg) => msg.idx)).to.include.members([4, 5, 6, 7]);
     });
   });
 });

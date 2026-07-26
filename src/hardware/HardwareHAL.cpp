@@ -152,8 +152,8 @@ void HardwareHAL::writeGP8403(uint8_t channel, uint16_t value) {
 
     Wire.beginTransmission(Config::DAC_I2C_ADDR);
     Wire.write(reg);
-    Wire.write((raw >> 8) & 0xFF); // high byte first
-    Wire.write(raw & 0xFF);        // low byte second
+    Wire.write(raw & 0xFF);        // low byte first
+    Wire.write((raw >> 8) & 0xFF); // high byte second
     uint8_t err = Wire.endTransmission();
 
     // Validação: log do valor enviado e tensão esperada na saída

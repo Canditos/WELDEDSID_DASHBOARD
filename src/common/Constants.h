@@ -16,7 +16,7 @@ namespace Config {
     const uint8_t SHIFT_CLOCK_PIN = 13;
     const uint8_t SHIFT_LATCH_PIN = 12;
     const uint8_t SHIFT_OE_PIN = 5;
-    const uint8_t RELAY_COUNT = 10;
+    const uint8_t RELAY_COUNT = 12;
 
     // Hardware Configuration - DAC (GP8403)
     const uint8_t DAC_I2C_ADDR = 0x58;
