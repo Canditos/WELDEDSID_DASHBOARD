@@ -144,10 +144,10 @@ const DeviceState& HardwareHAL::getState() const { return state; }
 bool HardwareHAL::hasStateChanged() { if(_changed) { _changed = false; return true; } return false; }
 
 void HardwareHAL::writeGP8403(uint8_t channel, uint16_t value) {
-    // GP8403 register map: Output 0 → 0x02, Output 1 → 0x04
+    // GP8403 register map (swapped per user request): Output 0 → 0x04, Output 1 → 0x02
     // Data format: 12-bit value left-aligned in a 16-bit word (bits [15:4]).
     // Byte order: high byte first, then low byte.
-    uint8_t reg = (channel == 0) ? 0x02 : 0x04;
+    uint8_t reg = (channel == 0) ? 0x04 : 0x02;
     uint16_t raw = value << 4; // left-align 12-bit value into 16-bit word
 
     Wire.beginTransmission(Config::DAC_I2C_ADDR);
