@@ -410,25 +410,59 @@ function logout() {
     applyRolePermissions();
 }
 
-function initWS() {
-    if (!wsToken) return;
+let wsReconnectAttempts = 0;
+const WS_MAX_RECONNECT_DELAY = 30000;
+
+async function initWS() {
+    if (!authHeader) return;
+
+    if (ws) {
+        ws.onclose = null;
+        ws.onerror = null;
+        ws.onmessage = null;
+        ws.onopen = null;
+        try { ws.close(); } catch (e) {}
+        ws = null;
+    }
+
+    // Always fetch a fresh token before connecting
+    try {
+        const data = await fetchJSON("/api/ws-auth");
+        wsToken = data.token || "";
+        if (!wsToken) {
+            throw new Error("No token received");
+        }
+    } catch (e) {
+        addLog("Failed to get WS auth token, retrying...", "ERR");
+        updateModeChip("ws-mode-chip", "WS: AUTH ERROR", "offline");
+        setCommandState("Token error", "Could not obtain WebSocket token", "offline");
+        scheduleReconnect();
+        return;
+    }
 
     updateModeChip("ws-mode-chip", "WS: CONNECTING", "warn");
     setCommandState("Connecting", "Opening WebSocket session", "warn");
     ws = new WebSocket(`ws://${location.hostname}:81/`);
+
     ws.onopen = () => {
+        wsReconnectAttempts = 0;
         addLog("Real-time connection open", "NET");
         updateModeChip("ws-mode-chip", "WS: LIVE", "live");
         setCommandState("Linked", "WebSocket session established", "live");
         ws.send(JSON.stringify({ cmd: "auth", token: wsToken }));
     };
+
+    ws.onerror = (err) => {
+        addLog("WebSocket error occurred", "ERR");
+    };
+
     ws.onclose = () => {
         addLog("Connection lost. Retrying...", "ERR");
         updateModeChip("ws-mode-chip", "WS: RETRYING", "warn");
         setCommandState("Retrying", "Command bus reconnect in progress", "offline");
-        if (reconnectTimer) clearTimeout(reconnectTimer);
-        reconnectTimer = setTimeout(initWS, 2000);
+        scheduleReconnect();
     };
+
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.type === "auth" && !data.ok) {
@@ -455,6 +489,24 @@ function initWS() {
         }
     };
 }
+
+function scheduleReconnect() {
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    const delay = Math.min(2000 * Math.pow(1.5, wsReconnectAttempts), WS_MAX_RECONNECT_DELAY);
+    wsReconnectAttempts++;
+    reconnectTimer = setTimeout(initWS, delay);
+}
+
+// Reconnect when the browser tab becomes visible again (mobile/desktop)
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && authHeader) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            addLog("Tab visible again, reconnecting WS...", "NET");
+            wsReconnectAttempts = 0;
+            initWS();
+        }
+    }
+});
 
 function updateStatusBadge(id, isOnline) {
     const badge = document.getElementById(`badge-${id}`);

@@ -83,6 +83,9 @@ void AppServer::begin() {
     Serial.println("[SERVER] HTTP Server started on port 80.");
 
     webSocket.begin();
+    // Enable WebSocket heartbeat to automatically detect and close dead connections
+    // Ping every 15s, expect pong within 3s, disconnect after 2 missed pongs.
+    webSocket.enableHeartbeat(15000, 3000, 2);
     webSocket.onEvent([this](uint8_t n, WStype_t t, uint8_t* p, size_t l) {
         this->onWebSocketEvent(n, t, p, l);
     });
@@ -509,18 +512,27 @@ bool AppServer::requireRole(AsyncWebServerRequest* request, UserRole requiredRol
 void AppServer::onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
     switch (type) {
         case WStype_DISCONNECTED:
+            Serial.printf("[WS] Client %u disconnected\n", num);
             setClientAuthorized(num, false);
             setClientRole(num, UserRole::VIEWER, "");
+            clientUsernames[num] = "";
             break;
         case WStype_CONNECTED: {
             IPAddress ip = webSocket.remoteIP(num);
-            Serial.printf("[%u] Connected from %s\n", num, ip.toString().c_str());
+            Serial.printf("[WS] Client %u connected from %s\n", num, ip.toString().c_str());
             setClientAuthorized(num, false);
             setClientRole(num, UserRole::VIEWER, "");
             break;
         }
         case WStype_TEXT:
             handleWebSocketMessage(num, payload, length);
+            break;
+        case WStype_ERROR:
+            Serial.printf("[WS] Client %u error\n", num);
+            break;
+        case WStype_PING:
+            break;
+        case WStype_PONG:
             break;
         default:
             break;
@@ -666,7 +678,7 @@ void AppServer::broadcastUpdate(int singleIdx, int singleState) {
     String output;
     serializeJson(doc, output);
     for (uint8_t i = 0; i < MAX_WS_CLIENTS; i++) {
-        if (isClientAuthorized(i)) {
+        if (isClientAuthorized(i) && webSocket.clientIsConnected(i)) {
             webSocket.sendTXT(i, output);
         }
     }
@@ -696,20 +708,32 @@ String AppServer::generateWsAuthToken() const {
 }
 
 int AppServer::allocatePendingSession(const String& token, UserRole role, const String& username) {
+    // First, expire any stale pending sessions older than 30 seconds
+    uint32_t now = millis();
+    for (uint8_t i = 0; i < MAX_WS_CLIENTS; ++i) {
+        if (pendingSessions[i].active && (now - pendingSessions[i].createdAt > 30000)) {
+            Serial.printf("[WS] Expiring stale pending session %u\n", i);
+            clearPendingSession(i);
+        }
+    }
+
     for (uint8_t i = 0; i < MAX_WS_CLIENTS; ++i) {
         if (!pendingSessions[i].active) {
             pendingSessions[i].active = true;
             pendingSessions[i].token = token;
             pendingSessions[i].role = role;
             pendingSessions[i].username = username;
+            pendingSessions[i].createdAt = now;
             return i;
         }
     }
 
+    // All slots full, overwrite oldest
     pendingSessions[0].active = true;
     pendingSessions[0].token = token;
     pendingSessions[0].role = role;
     pendingSessions[0].username = username;
+    pendingSessions[0].createdAt = now;
     return 0;
 }
 

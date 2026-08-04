@@ -26,6 +26,7 @@ private:
         String token;
         UserRole role;
         String username;
+        uint32_t createdAt;
     };
 
     ConfigManager& config;
